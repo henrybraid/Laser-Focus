@@ -854,7 +854,8 @@ const Movement_Controls = defs.Movement_Controls =
             this.look_around_locked = true;
             this.mouse = {"from_center": vec(0, 0)};
             let rect = canvas.getBoundingClientRect();
-            
+
+
             // Set up mouse response.  The last one stops us from reacting if the mouse leaves the canvas:
             document.addEventListener("mouseup", e => {
                 this.mouse.anchor = undefined;
@@ -862,13 +863,16 @@ const Movement_Controls = defs.Movement_Controls =
             });
             canvas.addEventListener("mousedown", e => {
                 e.preventDefault();
-                canvas.requestPointerLock();
-                this.mouse.anchor = vec(e.clientX, e.clientY);
+                //canvas.exitPointerLock();
+                this.mouse.anchor = vec(0, 0);
             });
             canvas.addEventListener("mousemove", e => {
                 this.look_around_locked = false;
-                e.preventDefault();
+                canvas.requestPointerLock();
+                
                 this.update_mouse_position(e,rect);
+                //this.mouse.anchor = vec(this.current.mouseX, this.current.mouseY);
+                e.preventDefault();
             });
             canvas.addEventListener("mouseout", e => {
                 if (!this.mouse.anchor) this.mouse.from_center.scale_by(0)
@@ -880,7 +884,7 @@ const Movement_Controls = defs.Movement_Controls =
         {
             if(this.previous == null)
             {
-                this.previous = {...this.current};
+                this.previous = {mouseX: 0, mouseY:0, mouseXchange: 0, mouseYchange: 0};
             }
             this.current.mouseX = e.clientX - (rect.left + rect.right)/2;
             this.current.mouseY = e.clientY - (rect.top + rect.bottom)/2;
@@ -889,8 +893,10 @@ const Movement_Controls = defs.Movement_Controls =
             //this.mouse.from_center = mouse_position(e);
             this.current.mouseXchange = this.current.mouseX - this.previous.mouseX;
             this.current.mouseYchange = this.current.mouseY - this.previous.mouseY;
-            this.mouse.from_center = vec(this.current.mouseXchange, this.current.mouseYchange);
+            //this.mouse.from_center = vec(this.current.mouseXchange, this.current.mouseYchange);
 
+
+            
             this.previous.mouseX = this.current.mouseX;
             this.previous.mouseY = this.current.mouseY;
         }
@@ -902,7 +908,7 @@ const Movement_Controls = defs.Movement_Controls =
             // make_control_panel(): Sets up a panel of interactive HTML elements, including
             // buttons with key bindings for affecting this scene, and live info readouts.
             this.control_panel.innerHTML += "Click and drag the scene to spin your viewpoint around it.<br>";
-            this.live_string(box => box.textContent = "- Position: " + this.pos[0].toFixed(2) + ", " + this.pos[1].toFixed(2)
+            this.live_string(box => box.textContent = "- Position: " + this.current.mouseXchange.toFixed(2) + ", " + this.current.mouseYchange.toFixed(2)
                 + ", " + this.pos[2].toFixed(2));
             this.new_line();
             // The facing directions are surprisingly affected by the left hand rule:
@@ -967,35 +973,38 @@ const Movement_Controls = defs.Movement_Controls =
         }
 
         first_person_flyaround(radians_per_frame, meters_per_frame, leeway = 0) {
-            // (Internal helper function)
-            // Compare mouse's location to all four corners of a dead box:
-            const offsets_from_dead_box = {
-                plus: [this.mouse.from_center[0] + leeway, this.mouse.from_center[1] + leeway],
-                minus: [this.mouse.from_center[0] - leeway, this.mouse.from_center[1] - leeway]
-            };
-            // Apply a camera rotation movement, but only when the mouse is
-            // past a minimum distance (leeway) from the canvas's center:
-            
             if (!this.look_around_locked){
             // If steering, steer according to "mouse_from_center" vector, but don't
             // start increasing until outside a leeway window from the center.
                 for (let i = 0; i < 2; i++) {                                     // The &&'s in the next line might zero the vectors out:
-                    let o = offsets_from_dead_box;
-                    let velocity = ((o.minus[i] > 0 && o.minus[i]) || (o.plus[i] < 0 && o.plus[i])) * radians_per_frame;
-                    if(this.current.mouseXchange ==0 && this.current.mouseYchange==0)
+                    let velocity = radians_per_frame;
+
+                    if(i ==0)
+                    {
+                        velocity = velocity * this.current.mouseXchange;
+                    }
+                    if(i==1)
+                    {
+                        velocity = velocity* this.current.mouseYchange;
+                    }
+                    if(this.current.mouseXchange ===0 && this.current.mouseYchange===0)
                     {
                         velocity = 0;
                     }
-                    // On X step, rotate around Y axis, and vice versa.
                     
+                    // On X step, rotate around Y axis, and vice versa.
                     this.matrix().post_multiply(Mat4.rotation(-velocity, i, 1 - i, 0));
                     this.inverse().pre_multiply(Mat4.rotation(+velocity, i, 1 - i, 0));
-                }
+                } 
+                
+                
+
+                
             /*this.matrix().post_multiply(Mat4.rotation(-.1 * this.roll, 0, 0, 1));
             this.inverse().pre_multiply(Mat4.rotation(+.1 * this.roll, 0, 0, 1));
-            // Now apply translation movement of the camera, in the newest local coordinate frame.
+            //Now apply translation movement of the camera, in the newest local coordinate frame.
             this.matrix().post_multiply(Mat4.translation(...this.thrust.times(-meters_per_frame)));
-            this.inverse().pre_multiply(Mat4.translation(...this.thrust.times(+meters_per_frame)));  */
+            this.inverse().pre_multiply(Mat4.translation(...this.thrust.times(+meters_per_frame)));   */
             }
             
         }
