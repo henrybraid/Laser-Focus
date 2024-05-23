@@ -817,8 +817,16 @@ const Movement_Controls = defs.Movement_Controls =
             const data_members = {
                 roll: 0, look_around_locked: true,
                 thrust: vec3(0, 0, 0), pos: vec3(0, 0, 0), z_axis: vec3(0, 0, 0),
-                radians_per_frame: 1 / 200, meters_per_frame: 20, speed_multiplier: 1
+                radians_per_frame: 50 / 200, meters_per_frame: 20, speed_multiplier: 1
+                
             };
+            
+            this.current = {
+                mouseX: 0,
+                mouseY: 0,
+                mouseXchange: 0,
+                mouseYchange: 0,
+            }
             Object.assign(this, data_members);
 
             this.mouse_enabled_canvases = new Set();
@@ -843,24 +851,48 @@ const Movement_Controls = defs.Movement_Controls =
         add_mouse_controls(canvas) {
             // add_mouse_controls():  Attach HTML mouse events to the drawing canvas.
             // First, measure mouse steering, for rotating the flyaround camera:
+            this.look_around_locked = true;
             this.mouse = {"from_center": vec(0, 0)};
-            const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
-                vec(e.clientX - (rect.left + rect.right) / 2, e.clientY - (rect.bottom + rect.top) / 2);
+            let rect = canvas.getBoundingClientRect();
+            
             // Set up mouse response.  The last one stops us from reacting if the mouse leaves the canvas:
             document.addEventListener("mouseup", e => {
                 this.mouse.anchor = undefined;
+                document.exitPointerLock();
             });
             canvas.addEventListener("mousedown", e => {
                 e.preventDefault();
-                this.mouse.anchor = mouse_position(e);
+                canvas.requestPointerLock();
+                this.mouse.anchor = vec(e.clientX, e.clientY);
             });
             canvas.addEventListener("mousemove", e => {
+                this.look_around_locked = false;
                 e.preventDefault();
-                this.mouse.from_center = mouse_position(e);
+                this.update_mouse_position(e,rect);
             });
             canvas.addEventListener("mouseout", e => {
                 if (!this.mouse.anchor) this.mouse.from_center.scale_by(0)
             });
+            
+        }
+        
+        update_mouse_position(e, rect)
+        {
+            if(this.previous == null)
+            {
+                this.previous = {...this.current};
+            }
+            this.current.mouseX = e.clientX - (rect.left + rect.right)/2;
+            this.current.mouseY = e.clientY - (rect.top + rect.bottom)/2;
+
+            
+            //this.mouse.from_center = mouse_position(e);
+            this.current.mouseXchange = this.current.mouseX - this.previous.mouseX;
+            this.current.mouseYchange = this.current.mouseY - this.previous.mouseY;
+            this.mouse.from_center = vec(this.current.mouseXchange, this.current.mouseYchange);
+
+            this.previous.mouseX = this.current.mouseX;
+            this.previous.mouseY = this.current.mouseY;
         }
 
         show_explanation(document_element) {
@@ -934,7 +966,7 @@ const Movement_Controls = defs.Movement_Controls =
             this.new_line();
         }
 
-        first_person_flyaround(radians_per_frame, meters_per_frame, leeway = 70) {
+        first_person_flyaround(radians_per_frame, meters_per_frame, leeway = 0) {
             // (Internal helper function)
             // Compare mouse's location to all four corners of a dead box:
             const offsets_from_dead_box = {
@@ -943,21 +975,29 @@ const Movement_Controls = defs.Movement_Controls =
             };
             // Apply a camera rotation movement, but only when the mouse is
             // past a minimum distance (leeway) from the canvas's center:
-            if (!this.look_around_locked)
-                // If steering, steer according to "mouse_from_center" vector, but don't
-                // start increasing until outside a leeway window from the center.
+            
+            if (!this.look_around_locked){
+            // If steering, steer according to "mouse_from_center" vector, but don't
+            // start increasing until outside a leeway window from the center.
                 for (let i = 0; i < 2; i++) {                                     // The &&'s in the next line might zero the vectors out:
-                    let o = offsets_from_dead_box,
-                        velocity = ((o.minus[i] > 0 && o.minus[i]) || (o.plus[i] < 0 && o.plus[i])) * radians_per_frame;
+                    let o = offsets_from_dead_box;
+                    let velocity = ((o.minus[i] > 0 && o.minus[i]) || (o.plus[i] < 0 && o.plus[i])) * radians_per_frame;
+                    if(this.current.mouseXchange ==0 && this.current.mouseYchange==0)
+                    {
+                        velocity = 0;
+                    }
                     // On X step, rotate around Y axis, and vice versa.
+                    
                     this.matrix().post_multiply(Mat4.rotation(-velocity, i, 1 - i, 0));
                     this.inverse().pre_multiply(Mat4.rotation(+velocity, i, 1 - i, 0));
                 }
-            this.matrix().post_multiply(Mat4.rotation(-.1 * this.roll, 0, 0, 1));
+            /*this.matrix().post_multiply(Mat4.rotation(-.1 * this.roll, 0, 0, 1));
             this.inverse().pre_multiply(Mat4.rotation(+.1 * this.roll, 0, 0, 1));
             // Now apply translation movement of the camera, in the newest local coordinate frame.
             this.matrix().post_multiply(Mat4.translation(...this.thrust.times(-meters_per_frame)));
-            this.inverse().pre_multiply(Mat4.translation(...this.thrust.times(+meters_per_frame)));
+            this.inverse().pre_multiply(Mat4.translation(...this.thrust.times(+meters_per_frame)));  */
+            }
+            
         }
 
         third_person_arcball(radians_per_frame) {
@@ -980,6 +1020,7 @@ const Movement_Controls = defs.Movement_Controls =
 
         display(context, graphics_state, dt = graphics_state.animation_delta_time / 1000) {
             // The whole process of acting upon controls begins here.
+            
             const m = this.speed_multiplier * this.meters_per_frame,
                 r = this.speed_multiplier * this.radians_per_frame;
 
