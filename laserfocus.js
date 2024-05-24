@@ -11,29 +11,33 @@ export class laserfocus extends Scene {
         };
         this.materials = { 
             test: new Material(new defs.Phong_Shader(), 
-                {ambient: 0.4, diffusivity: 0.6, color: hex_color("#88008F") }),
+                {ambient: 0.4, diffusivity: 0.6, color: hex_color("#4dff00") }),
             wall_material: new Material(new defs.Phong_Shader(),
-                {ambient: 0.4, diffusivity: 0.6, color: hex_color("#FF0000")}) ,
+                {ambient: 0.4, diffusivity: 0.6, color: hex_color("#cac1e2")}) ,
             crosshair_mat: new Material(new defs.Phong_Shader(),
                 {ambient: 1, diffusivity: 0, color: hex_color("#FFFFFF")},),
         };
         
         // Initialize an array to store the positions of the spheres
-        this.sphere_positions = [
-            vec3(0,0,20),
-            vec3(10, 0, 20),
-            vec3(-10, 0, 20),
-            vec3(0, 10, 20),
-            vec3(0, -10, 20),
-            vec3(10, 10, 20),
-            vec3(-10, -10, 20),
-            vec3(-10,10,20),
-            vec3(10,-10,20)
-        ];
+        this.sphere_positions = [];
 
-        this.eye = vec3(0, 0, 0); // Position of the camera
+        for(let i =0; i<15;i++)
+        {
+            for(let j =0; j<7; j++)
+            {
+                for(let k=0; k<7;k++)
+                this.sphere_positions.push(vec3(i*5,j*5,20+(k*2)));
+            }
+        }
+
+        this.eye = vec3(0, 0, -30); // Position of the camera
         this.at = vec3(1, 0,0);   // Where the camera is looking at
         this.up = vec3(0, 1, 0);   // Up direction vector
+
+        this.timer = 0;
+        this.reset_spawn_timer = 75;
+        this.max_spawn_timer = 1.5*this.reset_spawn_timer;
+        this.index = this.getRandIndex();
 
         this.yaw = 0;
         this.pitch = 0;
@@ -41,11 +45,15 @@ export class laserfocus extends Scene {
 
 
         document.addEventListener('mousemove', e => this.onMouseMove(e));
+        document.addEventListener('click', e=>this.onMouseClick(e));
         this.updateViewMatrix();
     }
 
-    requestPointerLock(){
-        this.canvas.requestPointerLock();
+
+    getRandIndex()
+    {
+        const i = Math.floor(Math.random() * 735);
+        return i;
     }
 
     updateViewMatrix() {
@@ -56,6 +64,10 @@ export class laserfocus extends Scene {
         );
         this.at = this.eye.plus(direction);
         this.View_Matrix = Mat4.look_at(this.eye, this.at, this.up);
+    }
+
+    onMouseClick(e){
+        
     }
 
     onMouseMove(e) {
@@ -79,37 +91,63 @@ export class laserfocus extends Scene {
         program_state.set_camera(this.View_Matrix);
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.1, 1000);
         
+
+
         let model_transform = Mat4.identity();
         const light_position = vec4(0, 0, 0, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
         
+        //const t = program_state.animation_time / 1000;
+
         const room_size = 100;
 
         // FRONT WALL
         let front_wall_transform = Mat4.translation(0, 0, -room_size).times(Mat4.scale(room_size, room_size, 1));
         this.shapes.wall.draw(context, program_state, front_wall_transform, this.materials.wall_material);
-
         // LEFT WALL
         let left_wall_transform = Mat4.translation(-room_size, 0, 0).times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, left_wall_transform, this.materials.wall_material.override({color: hex_color("#0000FF")}));
+        this.shapes.wall.draw(context, program_state, left_wall_transform, this.materials.wall_material);
 
         // RIGHT WALL
         let right_wall_transform = Mat4.translation(room_size, 0, 0).times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, right_wall_transform, this.materials.wall_material.override({color: hex_color("#00FF00")}));
+        this.shapes.wall.draw(context, program_state, right_wall_transform, this.materials.wall_material);
 
         // BACK WALL
         let back_wall_transform = Mat4.translation(0, 0, room_size).times(Mat4.rotation(Math.PI, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, back_wall_transform, this.materials.wall_material.override({color: hex_color("#FFFF00")}));
+        this.shapes.wall.draw(context, program_state, back_wall_transform, this.materials.wall_material);
+
+        
+        // FLOOR
+        let floor_transform = Mat4.translation(0, -25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
+        this.shapes.wall.draw(context, program_state, floor_transform, this.materials.wall_material.override({color:hex_color("#84808c")}));
+
+        // ROOF
+        let roof_transform = Mat4.translation(0, 25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
+        this.shapes.wall.draw(context, program_state, roof_transform, this.materials.wall_material.override({color: hex_color("#FFFFFF")}));
+        
+        if(this.timer<this.reset_spawn_timer){
+            let target_transform = Mat4.translation(...this.sphere_positions[this.index]).times(Mat4.translation(-15,-15,0)).times(Mat4.scale(3,3,3));
+            this.shapes.target.draw(context,program_state,target_transform,this.materials.test);
+            
+        }
+        if(this.timer>this.max_spawn_timer)
+        {
+            this.timer = 0;
+            this.index = this.getRandIndex();
+        }
+        
+
 
         // Draw each sphere at its respective position
-        for (let position of this.sphere_positions) {
-        let model_transform = Mat4.translation(...position);
+        /*for (let position of this.sphere_positions) {
+        let model_transform = Mat4.translation(...position).times(Mat4.translation(-35,-15,0));
         this.shapes.target.draw(context, program_state, model_transform, this.materials.test);
-}
+        }  */
         //this.shapes.target.draw(context, program_state, model_transform.times(4,0,0), this.materials.test);
         console.log("drew shape");
         console.log("Camera At:", this.at, "Camera Up:", this.up);
         this.drawCrosshair(context, program_state);
+        this.timer++;
     }
 
 }
