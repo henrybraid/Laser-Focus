@@ -1,4 +1,3 @@
-
 import {defs, tiny} from './examples/common.js';
 const {vec, vec3, vec4, color, hex_color, Matrix, Mat4, Light, Material, Scene} = tiny;
 
