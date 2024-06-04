@@ -29,13 +29,12 @@ export class laserfocus extends Scene {
                 this.sphere_positions.push(vec3(i*5,j*5,20+(k*2)));
             }
         }
-
         this.eye = vec3(0, 0, -30); // Position of the camera
         this.at = vec3(1, 0,0);   // Where the camera is looking at
         this.up = vec3(0, 1, 0);   // Up direction vector
 
         this.timer = 0;
-        this.reset_spawn_timer = 75;
+        this.reset_spawn_timer = 750;
         this.max_spawn_timer = 1.5*this.reset_spawn_timer;
         this.index = this.getRandIndex();
 
@@ -44,11 +43,49 @@ export class laserfocus extends Scene {
         this.sensitivity = 0.02;
 
 
-        document.addEventListener('mousemove', e => this.onMouseMove(e));
-        document.addEventListener('click', e=>this.onMouseClick(e));
+        this.last_time = 0;  // Time of the last frame
+        this.move_speed = 30;  // Speed of the camera movement
+        this.move_direction = vec3(0, 0, 0);  // Current movement direction vector
+
+        this.key_map = {};  // Tracks which keys are being pressed
+        this.setupEventHandlers();
+
         this.updateViewMatrix();
     }
 
+    setupEventHandlers() {
+        document.addEventListener('keydown', e => this.moveCamera(e));
+        document.addEventListener('mousemove', e => this.onMouseMove(e));
+        document.addEventListener('click', e => this.onMouseClick(e));
+    }
+
+    moveCamera(event) {
+        const moveStep = 10;
+        // Extract only the x and z components of the direction vector and normalize
+        let forward = vec3(this.at[0] - this.eye[0], 0, this.at[2] - this.eye[2]).normalized();
+        let right = forward.cross(this.up).normalized(); // Right direction, already on the x-z plane
+    
+        switch (event.key) {
+            case "w":
+                this.eye = this.eye.plus(forward.times(moveStep));
+                this.at = this.at.plus(forward.times(moveStep));
+                break;
+            case "s":
+                this.eye = this.eye.minus(forward.times(moveStep));
+                this.at = this.at.minus(forward.times(moveStep));
+                break;
+            case "a":
+                this.eye = this.eye.minus(right.times(moveStep));
+                this.at = this.at.minus(right.times(moveStep));
+                break;
+            case "d":
+                this.eye = this.eye.plus(right.times(moveStep));
+                this.at = this.at.plus(right.times(moveStep));
+                break;
+        }
+        this.updateViewMatrix();
+        event.preventDefault();
+    }
 
     getRandIndex()
     {
@@ -66,8 +103,40 @@ export class laserfocus extends Scene {
         this.View_Matrix = Mat4.look_at(this.eye, this.at, this.up);
     }
 
-    onMouseClick(e){
-        
+    onMouseClick(e) {
+        const rayDir = this.at.minus(this.eye).normalized();
+        let rayOrigin = this.eye;
+        let spherePos = this.sphere_positions[this.index];
+
+        const radius = 3; // Sphere radius
+        const oc = rayOrigin.minus(spherePos);
+        // Calculate quadratic equation components
+        const a = rayDir.dot(rayDir);
+        const b = 2.0 *oc.dot(rayDir);
+        const c = oc.dot(oc) - (radius*radius);
+
+        const discriminant = (b * b) - (4 *c);
+        console.log("Sphere Pos:", spherePos);
+        console.log("Sphere Radius:", radius);
+        console.log("rayDir:", rayDir);
+        console.log("rayOrigin", rayOrigin);
+        console.log("Discriminant:", discriminant);
+        console.log("this.at", this.at);
+
+        if (discriminant < 0) {
+            console.log("Missed sphere at index:", this.index);
+        } else {
+            const t1 = (-b+Math.sqrt(discriminant))/(2.0*a);
+            const t2 = (-b+Math.sqrt(discriminant))/(2.0*a);
+            /*if(t1<0 &&t2<0)
+            {
+                console.log("Missed Sphere");
+            }
+            else{*/
+                console.log("Hit Sphere at Index:", this.index);
+            //}
+
+        }
     }
 
     onMouseMove(e) {
@@ -144,9 +213,11 @@ export class laserfocus extends Scene {
         this.shapes.target.draw(context, program_state, model_transform, this.materials.test);
         }  */
         //this.shapes.target.draw(context, program_state, model_transform.times(4,0,0), this.materials.test);
-        console.log("drew shape");
-        console.log("Camera At:", this.at, "Camera Up:", this.up);
+        //console.log("drew shape");
+        //console.log("Camera At:", this.at, "Camera Up:", this.up);
         this.drawCrosshair(context, program_state);
+
+        
         this.timer++;
     }
 
