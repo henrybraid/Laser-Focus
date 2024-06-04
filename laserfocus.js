@@ -1,5 +1,5 @@
 import {defs, tiny} from './examples/common.js';
-const {vec, vec3, vec4, color, hex_color, Matrix, Mat4, Light, Material, Scene} = tiny;
+const {vec, vec3, vec4, color, hex_color, Matrix, Mat4, Light, Material, Scene, Texture} = tiny;
 
 export class laserfocus extends Scene {
     constructor() {
@@ -8,6 +8,7 @@ export class laserfocus extends Scene {
             target: new defs.Subdivision_Sphere(4),
             wall: new defs.Square(),
             crosshair_line: new defs.Subdivision_Sphere(4),
+            showlight: new defs.Rounded_Capped_Cylinder(100,100),
         };
         this.materials = { 
             test: new Material(new defs.Phong_Shader(), 
@@ -16,6 +17,17 @@ export class laserfocus extends Scene {
                 {ambient: 0.4, diffusivity: 0.6, color: hex_color("#cac1e2")}) ,
             crosshair_mat: new Material(new defs.Phong_Shader(),
                 {ambient: 1, diffusivity: 0, color: hex_color("#FFFFFF")},),
+
+            floor_texture: new Material(new defs.Textured_Phong(), {
+                color: hex_color("#000000"),
+                ambient: 0.5, diffusivity: 0.1, specularity: 0.1,
+                texture: new Texture("assets/floor_texture3.png")
+            }),
+            wall_texture: new Material(new defs.Textured_Phong(), {
+                color: hex_color("#000000"),
+                ambient: 0.5, diffusivity: 0.1, specularity: 0.1,
+                texture: new Texture("assets/floor_texture2.png")
+            }),
         };
         
         // Initialize an array to store the positions of the spheres
@@ -32,11 +44,14 @@ export class laserfocus extends Scene {
         this.eye = vec3(0, 0, -30); // Position of the camera
         this.at = vec3(1, 0,0);   // Where the camera is looking at
         this.up = vec3(0, 1, 0);   // Up direction vector
+        this.look_direction = this.at.minus(this.eye).normalized();
 
         this.timer = 0;
-        this.reset_spawn_timer = 750;
+        this.reset_spawn_timer = 75;
         this.max_spawn_timer = 1.5*this.reset_spawn_timer;
         this.index = this.getRandIndex();
+        this.target_transform = Mat4.identity();
+        this.updateTargetPosition();
 
         this.yaw = 0;
         this.pitch = 0;
@@ -49,6 +64,9 @@ export class laserfocus extends Scene {
 
         this.key_map = {};  // Tracks which keys are being pressed
         this.setupEventHandlers();
+
+        this.context_width;
+        this.context_height;
 
         this.updateViewMatrix();
     }
@@ -64,26 +82,37 @@ export class laserfocus extends Scene {
         // Extract only the x and z components of the direction vector and normalize
         let forward = vec3(this.at[0] - this.eye[0], 0, this.at[2] - this.eye[2]).normalized();
         let right = forward.cross(this.up).normalized(); // Right direction, already on the x-z plane
-    
+        
+        let newEye = this.eye.copy();
+        let newAt = this.at.copy();
+        
         switch (event.key) {
             case "w":
-                this.eye = this.eye.plus(forward.times(moveStep));
-                this.at = this.at.plus(forward.times(moveStep));
+                newEye = newEye.plus(forward.times(moveStep));
+                newAt = newAt.plus(forward.times(moveStep));
                 break;
             case "s":
-                this.eye = this.eye.minus(forward.times(moveStep));
-                this.at = this.at.minus(forward.times(moveStep));
+                newEye = newEye.minus(forward.times(moveStep));
+                newAt = newAt.minus(forward.times(moveStep));
                 break;
             case "a":
-                this.eye = this.eye.minus(right.times(moveStep));
-                this.at = this.at.minus(right.times(moveStep));
+                newEye = newEye.minus(right.times(moveStep));
+                newAt = newAt.minus(right.times(moveStep));
                 break;
             case "d":
-                this.eye = this.eye.plus(right.times(moveStep));
-                this.at = this.at.plus(right.times(moveStep));
+                newEye = newEye.plus(right.times(moveStep));
+                newAt = newAt.plus(right.times(moveStep));
                 break;
         }
-        this.updateViewMatrix();
+        
+        // Collision detection with walls
+        const roomSize = 100;
+        if (Math.abs(newEye[0]) <= roomSize - 1 && Math.abs(newEye[2]) <= roomSize - 1 && newEye[1] >= -25 && newEye[1] <= 25) {
+            this.eye = newEye;
+            this.at = newAt;
+            this.updateViewMatrix();
+        }
+    
         event.preventDefault();
     }
 
@@ -91,6 +120,12 @@ export class laserfocus extends Scene {
     {
         const i = Math.floor(Math.random() * 735);
         return i;
+    }
+
+    updateTargetPosition()
+    {
+        this.target_transform = Mat4.translation(...this.sphere_positions[this.index]).times(Mat4.translation(-15,-15,0)).times(Mat4.scale(3,3,3));
+        console.log("Target position:", this.target_transform);
     }
 
     updateViewMatrix() {
@@ -101,41 +136,31 @@ export class laserfocus extends Scene {
         );
         this.at = this.eye.plus(direction);
         this.View_Matrix = Mat4.look_at(this.eye, this.at, this.up);
+        this.look_direction = this.at.minus(this.eye);
     }
 
-    onMouseClick(e) {
-        const rayDir = this.at.minus(this.eye).normalized();
-        let rayOrigin = this.eye;
-        let spherePos = this.sphere_positions[this.index];
-
-        const radius = 3; // Sphere radius
-        const oc = rayOrigin.minus(spherePos);
-        // Calculate quadratic equation components
-        const a = rayDir.dot(rayDir);
-        const b = 2.0 *oc.dot(rayDir);
-        const c = oc.dot(oc) - (radius*radius);
-
-        const discriminant = (b * b) - (4 *c);
-        console.log("Sphere Pos:", spherePos);
-        console.log("Sphere Radius:", radius);
-        console.log("rayDir:", rayDir);
-        console.log("rayOrigin", rayOrigin);
-        console.log("Discriminant:", discriminant);
-        console.log("this.at", this.at);
-
-        if (discriminant < 0) {
-            console.log("Missed sphere at index:", this.index);
+    onMouseClick(e) {        
+        const radius = 3; 
+        const sphere_center = this.target_transform.times(vec4(0, 0, 0, 1)).to3(); // Extract the sphere's position from the target transform
+        
+        const ray_direction = this.at.minus(this.eye).normalized();
+        
+        // Vector from ray origin to sphere center
+        const oc = sphere_center.minus(this.eye);
+        
+        // Coefficients for the quadratic equation
+        const a = ray_direction.dot(ray_direction);
+        const b = 2.0 * oc.dot(ray_direction);
+        const c = oc.dot(oc) - radius * radius;
+        
+        // Calculate the discriminant
+        const discriminant = b * b - 4 * a * c;
+        
+        if (discriminant > 0) {
+            console.log("Hit"); //used for debugging
+            this.timer = this.max_spawn_timer;
         } else {
-            const t1 = (-b+Math.sqrt(discriminant))/(2.0*a);
-            const t2 = (-b+Math.sqrt(discriminant))/(2.0*a);
-            /*if(t1<0 &&t2<0)
-            {
-                console.log("Missed Sphere");
-            }
-            else{*/
-                console.log("Hit Sphere at Index:", this.index);
-            //}
-
+            console.log("Missed"); //used for debugging
         }
     }
 
@@ -146,6 +171,8 @@ export class laserfocus extends Scene {
         // Clamp the pitch
         const maxPitch = Math.PI / 2 - 0.01;
         this.pitch = Math.max(-maxPitch, Math.min(maxPitch, this.pitch));
+
+
 
         this.updateViewMatrix();
     }
@@ -160,11 +187,12 @@ export class laserfocus extends Scene {
         program_state.set_camera(this.View_Matrix);
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.1, 1000);
         
-
+        this.context_height=context.height;
+        this.context_width=context.width;
 
         let model_transform = Mat4.identity();
         const light_position = vec4(0, 0, 0, 1);
-        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
+        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000),new Light(vec4(0,0,-100,1),color(1,1,0,1),1000)];
         
         //const t = program_state.animation_time / 1000;
 
@@ -188,37 +216,34 @@ export class laserfocus extends Scene {
         
         // FLOOR
         let floor_transform = Mat4.translation(0, -25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, floor_transform, this.materials.wall_material.override({color:hex_color("#84808c")}));
+        this.shapes.wall.draw(context, program_state, floor_transform, this.materials.floor_texture);
 
         // ROOF
         let roof_transform = Mat4.translation(0, 25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
         this.shapes.wall.draw(context, program_state, roof_transform, this.materials.wall_material.override({color: hex_color("#FFFFFF")}));
         
+
+        //Corner Show Lights
+        let light_transform = model_transform.times(Mat4.translation(0,10,0)).times(Mat4.scale(1,1,5));
+        this.shapes.showlight.draw(context,program_state,light_transform,this.materials.wall_material);
+
         if(this.timer<this.reset_spawn_timer){
-            let target_transform = Mat4.translation(...this.sphere_positions[this.index]).times(Mat4.translation(-15,-15,0)).times(Mat4.scale(3,3,3));
-            this.shapes.target.draw(context,program_state,target_transform,this.materials.test);
+            
+            this.shapes.target.draw(context,program_state,this.target_transform,this.materials.test);
             
         }
         if(this.timer>this.max_spawn_timer)
         {
             this.timer = 0;
             this.index = this.getRandIndex();
+            this.updateTargetPosition();
         }
         
-
-
-        // Draw each sphere at its respective position
-        /*for (let position of this.sphere_positions) {
-        let model_transform = Mat4.translation(...position).times(Mat4.translation(-35,-15,0));
-        this.shapes.target.draw(context, program_state, model_transform, this.materials.test);
-        }  */
-        //this.shapes.target.draw(context, program_state, model_transform.times(4,0,0), this.materials.test);
-        //console.log("drew shape");
-        //console.log("Camera At:", this.at, "Camera Up:", this.up);
         this.drawCrosshair(context, program_state);
 
         
         this.timer++;
+        //console.log("look direction",this.look_direction);
     }
 
 }
