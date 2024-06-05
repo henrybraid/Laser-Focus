@@ -1,4 +1,6 @@
 import {defs, tiny} from './examples/common.js';
+import { Text_Line } from "./examples/text-demo.js";
+import { Shape_From_File } from "./examples/obj-file-demo.js";
 const {vec, vec3, vec4, color, hex_color, Matrix, Mat4, Light, Material, Scene, Texture} = tiny;
 
 export class laserfocus extends Scene {
@@ -7,12 +9,14 @@ export class laserfocus extends Scene {
         this.shapes = { 
             target: new defs.Subdivision_Sphere(4),
             wall: new defs.Square(),
+            floor: new defs.Square(),
             crosshair_line: new defs.Subdivision_Sphere(4),
             showlight: new defs.Rounded_Capped_Cylinder(100,100),
+            text: new Text_Line(35)
         };
         this.materials = { 
             test: new Material(new defs.Phong_Shader(), 
-                {ambient: 0.4, diffusivity: 0.6, color: hex_color("#4dff00") }),
+                {ambient: 0.4, diffusivity: 0.6, color: hex_color("#00a6f1") }),
             wall_material: new Material(new defs.Phong_Shader(),
                 {ambient: 0.4, diffusivity: 0.6, color: hex_color("#cac1e2")}) ,
             crosshair_mat: new Material(new defs.Phong_Shader(),
@@ -20,16 +24,27 @@ export class laserfocus extends Scene {
 
             floor_texture: new Material(new defs.Textured_Phong(), {
                 color: hex_color("#000000"),
-                ambient: 0.5, diffusivity: 0.1, specularity: 0.1,
+                ambient: 0.75,
                 texture: new Texture("assets/floor_texture3.png")
             }),
             wall_texture: new Material(new defs.Textured_Phong(), {
                 color: hex_color("#000000"),
-                ambient: 0.5, diffusivity: 0.1, specularity: 0.1,
-                texture: new Texture("assets/floor_texture2.png")
+                ambient: 0.75,
+                texture: new Texture("assets/TargetWall.png", "LINEAR_MIPMAP_LINEAR")
+            }),
+            target_texture: new Material(new defs.Textured_Phong(),{
+                color: hex_color("#000000"),
+                ambient: 1, 
+                texture: new Texture("assets/floor_texture.png")
+            }),
+            text_image: new Material(new defs.Textured_Phong(), {
+                ambient: 1, diffusivity: 0, specularity: 0,
+                texture: new Texture("assets/text.png")
             }),
         };
-        
+        this.shapes.wall.arrays.texture_coord.forEach(p => p.scale_by(8));
+        this.shapes.floor.arrays.texture_coord.forEach(p=>p.scale_by(1));
+        this.shapes.target.arrays.texture_coord.forEach(p=>p.scale_by(1));
         // Initialize an array to store the positions of the spheres
         this.sphere_positions = [];
 
@@ -47,7 +62,14 @@ export class laserfocus extends Scene {
         this.look_direction = this.at.minus(this.eye).normalized();
 
         this.timer = 0;
-        this.reset_spawn_timer = 75;
+        this.game_timer=0;
+        this.game_end_flag = true;
+        this.max_gime_time = 600;
+
+        this.start_flag = true;
+        this.pause_flag = false;
+
+        this.reset_spawn_timer = 150;
         this.max_spawn_timer = 1.5*this.reset_spawn_timer;
         this.index = this.getRandIndex();
         this.target_transform = Mat4.identity();
@@ -68,6 +90,10 @@ export class laserfocus extends Scene {
         this.context_width;
         this.context_height;
 
+        this.score = 0;
+        this.miss=0;
+
+
         this.updateViewMatrix();
     }
 
@@ -76,6 +102,8 @@ export class laserfocus extends Scene {
         document.addEventListener('mousemove', e => this.onMouseMove(e));
         document.addEventListener('click', e => this.onMouseClick(e));
     }
+
+
 
     moveCamera(event) {
         const moveStep = 10;
@@ -103,19 +131,42 @@ export class laserfocus extends Scene {
                 newEye = newEye.plus(right.times(moveStep));
                 newAt = newAt.plus(right.times(moveStep));
                 break;
+            case " ": //used to start the game and the start or end screens
+                if(this.start_flag == true || this.game_end_flag == true){
+                    this.game_end_flag = false;
+                    this.start_flag = false;
+                    this.score = 0;
+                    this.miss = 0;
+                    this.timer = 0;
+                    this.game_timer=0;
+                    document.body.requestPointerLock();
+                }
+                else if (!this.pause_flag){
+                    this.pause_flag = true;
+                    document.exitPointerLock();
+                }
+                else{
+                    this.pause_flag = false;
+                    document.body.requestPointerLock();
+                }
+                break;
+            
         }
         
         // Collision detection with walls
         const roomSize = 100;
-        if (Math.abs(newEye[0]) <= roomSize - 1 && Math.abs(newEye[2]) <= roomSize - 1 && newEye[1] >= -25 && newEye[1] <= 25) {
-            this.eye = newEye;
-            this.at = newAt;
-            this.updateViewMatrix();
+        if(!this.pause_flag && !this.game_end_flag){
+            if (Math.abs(newEye[0]) <= roomSize - 1 && Math.abs(newEye[2]) <= roomSize - 1 && newEye[1] >= -25 && newEye[1] <= 25) {
+                this.eye = newEye;
+                this.at = newAt;
+                this.updateViewMatrix();
+            }
         }
+        
     
         event.preventDefault();
     }
-
+    
     getRandIndex()
     {
         const i = Math.floor(Math.random() * 735);
@@ -139,11 +190,35 @@ export class laserfocus extends Scene {
         this.look_direction = this.at.minus(this.eye);
     }
 
-    onMouseClick(e) {        
+    onMouseClick(e) {  
+        if(this.start_flag){
+        
+        }     
+        if(!this.game_end_flag && !this.pause_flag) {
+            this.checkTargetIntersection();
+        }
+        else{
+            
+        }
+    }
+
+    checkTargetIntersection(){
+        /*
+        Explanation: Uses Ray Casting to detect necessary collisions.
+
+        This works by casting a ray from this.eye to this.at and checking if that ray has any real solutions with the sphere target.
+        The ray equation is given by R(t) = O + Dt, where O is this.eye and D is the direction of the ray. (this.eye -> this.at)
+        The sphere equation is given by r^2 = |P - C|^2 where P is any point on the sphere, C is the center of the sphere, and r is the radius of the sphere.
+        By substituting the equation of the ray into the sphere equation, can find a function for t as the following:
+        (* represents the dot product and x represents scalar multiplication)
+        (D*D)t^2 + (2 x (O-C)*D)t + (O-C)*(O-C) - r^2 = 0.
+        From this, can find a solution using the quadratic formula. A real solution for t exists only if the discriminant is greater than 0.
+        This then determines if the ray cast from the eye intersects with the target sphere, thus indicating the player has shot the sphere.
+        */
         const radius = 3; 
         const sphere_center = this.target_transform.times(vec4(0, 0, 0, 1)).to3(); // Extract the sphere's position from the target transform
         
-        const ray_direction = this.at.minus(this.eye).normalized();
+        const ray_direction = this.look_direction;
         
         // Vector from ray origin to sphere center
         const oc = sphere_center.minus(this.eye);
@@ -156,31 +231,159 @@ export class laserfocus extends Scene {
         // Calculate the discriminant
         const discriminant = b * b - 4 * a * c;
         
-        if (discriminant > 0) {
+        //if the discriminant >0, then there exists a real solution for the intersection between the ray and the sphere
+        if (discriminant >= 0) {
             console.log("Hit"); //used for debugging
+            this.score+=1;
             this.timer = this.max_spawn_timer;
-        } else {
+        } else { //otherwise there is no real solution and the player missed
             console.log("Missed"); //used for debugging
+            this.miss+=1;
         }
-    }
+    }   
 
     onMouseMove(e) {
-        this.yaw -= e.movementX * this.sensitivity;
-        this.pitch -= e.movementY * this.sensitivity; // Inverting y-axis movement for more natural control
+        if(!this.pause_flag &&!this.game_end_flag){
+            this.yaw -= e.movementX * this.sensitivity;
+            this.pitch -= e.movementY * this.sensitivity; // Inverting y-axis movement for more natural control
 
-        // Clamp the pitch
-        const maxPitch = Math.PI / 2 - 0.01;
-        this.pitch = Math.max(-maxPitch, Math.min(maxPitch, this.pitch));
+            // Clamp the pitch
+            const maxPitch = Math.PI / 2 - 0.01;
+            this.pitch = Math.max(-maxPitch, Math.min(maxPitch, this.pitch));
 
-
-
-        this.updateViewMatrix();
+            this.updateViewMatrix();
+        }
     }
 
     drawCrosshair(context, program_state) {
         let crosshair_transform = Mat4.identity();
         crosshair_transform = crosshair_transform.times(Mat4.translation(this.at[0],this.at[1],this.at[2])).times(Mat4.scale(0.003,0.003,0.003));
         this.shapes.crosshair_line.draw(context,program_state,crosshair_transform,this.materials.crosshair_mat);
+    }
+
+
+    drawTextOverlays(context, program_state) {
+        let score_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                            .times(Mat4.rotation(this.yaw, 0, 1, 0)) //rotate with camera movement
+                                            .times(Mat4.rotation(-this.pitch,1,0,0))
+                                            .times(Mat4.scale(-0.03,0.03,0.03))
+                                            .times(Mat4.translation(-24,12,2));
+                                            
+        this.shapes.text.set_string("Score:" + this.score, context.context);
+        this.shapes.text.draw(context,program_state,score_transform, this.materials.text_image.override({color:hex_color("#319905")}));
+
+        let miss_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                            .times(Mat4.rotation(this.yaw, 0, 1, 0)) //rotate with camera movement
+                                            .times(Mat4.rotation(-this.pitch,1,0,0)) 
+                                            .times(Mat4.scale(-0.03,0.03,0.03))
+                                            .times(Mat4.translation(-24,10,2));
+        this.shapes.text.set_string("Misses:"+this.miss, context.context);
+        this.shapes.text.draw(context,program_state,miss_transform,this.materials.text_image.override({color:hex_color("#990505")}));
+
+        let timer_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                            .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                            .times(Mat4.rotation(-this.pitch,1,0,0))
+                                            .times(Mat4.scale(-0.03,0.03,0.03))
+                                            .times(Mat4.translation(11,12,2));
+        this.shapes.text.set_string("Timer:" + (this.game_timer/100), context.context);
+        this.shapes.text.draw(context, program_state,timer_transform, this.materials.text_image);
+
+        let pause_icon_transform = timer_transform.times(Mat4.translation(0,-2,0)).times(Mat4.scale(0.5,0.5,0.5));
+        this.shapes.text.set_string("Press Space to Pause", context.context);
+        this.shapes.text.draw(context,program_state,pause_icon_transform, this.materials.text_image);
+    }
+
+    gameTimeControl()
+    {
+        if(this.game_timer>this.max_gime_time){
+            this.game_end_flag=true;
+            this.game_timer=0;
+        }
+        else{
+            this.game_timer++;
+        }
+        
+        
+    }
+
+    drawStartScreen(context,program_state){
+        let title_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                            .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                            .times(Mat4.rotation(-this.pitch,1,0,0))
+                                            .times(Mat4.scale(-0.06,0.06,0.06))
+                                            .times(Mat4.translation(-7,3,2));
+        this.shapes.text.set_string("Laser Focus", context.context);
+        this.shapes.text.draw(context,program_state,title_transform,this.materials.text_image.override({color:hex_color("#e60eb0")}));
+
+        let click_display_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                    .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                    .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                    .times(Mat4.scale(-0.03,0.03,0.03))
+                                                    .times(Mat4.translation(-13,-4,2));
+        this.shapes.text.set_string("Press Space to Begin", context.context);
+        this.shapes.text.draw(context,program_state,click_display_transform,this.materials.text_image);
+    }
+
+    drawPauseScreen(context, program_state){
+        let pause_text_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                .times(Mat4.scale(-0.03,0.03,0.03))
+                                                .times(Mat4.translation(-7,10,2));
+        this.shapes.text.set_string("Game Paused", context.context);
+        this.shapes.text.draw(context,program_state,pause_text_transform,this.materials.text_image);
+
+        let prompt_text_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                .times(Mat4.scale(-0.03,0.03,0.03))
+                                                .times(Mat4.translation(-17  ,-4,2));
+        this.shapes.text.set_string("Press Space to Continue ", context.context);
+        this.shapes.text.draw(context,program_state,prompt_text_transform,this.materials.text_image);
+
+        let pause_icon_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                .times(Mat4.scale(0.02 ,0.06 ,1))
+                                                .times(Mat4.translation(2,1 ,0));
+        this.shapes.wall.draw(context,program_state,pause_icon_transform,this.materials.wall_material);
+        pause_icon_transform = pause_icon_transform.times(Mat4.translation(-4,0,0));
+        this.shapes.wall.draw(context,program_state,pause_icon_transform,this.materials.wall_material);
+    }
+
+    drawEndScreen(context,program_state)
+    {
+        let end_text_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                            .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                            .times(Mat4.rotation(-this.pitch,1,0,0))
+                                            .times(Mat4.scale(-0.03,0.03,0.03))
+                                            .times(Mat4.translation(-7,10,2));
+        this.shapes.text.set_string("Time's Up!", context.context);
+        this.shapes.text.draw(context,program_state,end_text_transform,this.materials.text_image);
+
+        let score_display_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                    .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                    .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                    .times(Mat4.scale(-0.03,0.03,0.03))
+                                                    .times(Mat4.translation(-9,6,2));
+        this.shapes.text.set_string("Final Score:" + this.score, context.context);
+        this.shapes.text.draw(context,program_state,score_display_transform,this.materials.text_image.override({color:hex_color("#319905")}));
+
+        let miss_display_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                    .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                    .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                    .times(Mat4.scale(-0.03,0.03,0.03))
+                                                    .times(Mat4.translation(-13,3,2));
+        this.shapes.text.set_string("You missed " + this.miss + " times.", context.context);
+        this.shapes.text.draw(context,program_state,miss_display_transform,this.materials.text_image.override({color:hex_color("#990505")}));
+
+        let prompt_text_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                .times(Mat4.scale(-0.03,0.03,0.03))
+                                                .times(Mat4.translation(-17  ,-4,2));
+        this.shapes.text.set_string("Press Space to Play Again", context.context);
+        this.shapes.text.draw(context,program_state,prompt_text_transform,this.materials.text_image);
     }
 
     display(context, program_state) {
@@ -192,7 +395,7 @@ export class laserfocus extends Scene {
 
         let model_transform = Mat4.identity();
         const light_position = vec4(0, 0, 0, 1);
-        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000),new Light(vec4(0,0,-100,1),color(1,1,0,1),1000)];
+        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
         
         //const t = program_state.animation_time / 1000;
 
@@ -200,50 +403,71 @@ export class laserfocus extends Scene {
 
         // FRONT WALL
         let front_wall_transform = Mat4.translation(0, 0, -room_size).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, front_wall_transform, this.materials.wall_material);
+        this.shapes.wall.draw(context, program_state, front_wall_transform, this.materials.wall_texture);
         // LEFT WALL
         let left_wall_transform = Mat4.translation(-room_size, 0, 0).times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, left_wall_transform, this.materials.wall_material);
+        this.shapes.wall.draw(context, program_state, left_wall_transform, this.materials.wall_texture);
 
         // RIGHT WALL
         let right_wall_transform = Mat4.translation(room_size, 0, 0).times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, right_wall_transform, this.materials.wall_material);
+        this.shapes.wall.draw(context, program_state, right_wall_transform, this.materials.wall_texture);
 
         // BACK WALL
         let back_wall_transform = Mat4.translation(0, 0, room_size).times(Mat4.rotation(Math.PI, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, back_wall_transform, this.materials.wall_material);
+        this.shapes.wall.draw(context, program_state, back_wall_transform, this.materials.wall_texture);
 
         
         // FLOOR
         let floor_transform = Mat4.translation(0, -25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, floor_transform, this.materials.floor_texture);
+        this.shapes.floor.draw(context, program_state, floor_transform, this.materials.floor_texture);
 
         // ROOF
         let roof_transform = Mat4.translation(0, 25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
-        this.shapes.wall.draw(context, program_state, roof_transform, this.materials.wall_material.override({color: hex_color("#FFFFFF")}));
+        this.shapes.floor.draw(context, program_state, roof_transform, this.materials.floor_texture);
         
 
         //Corner Show Lights
-        let light_transform = model_transform.times(Mat4.translation(0,10,0)).times(Mat4.scale(1,1,5));
-        this.shapes.showlight.draw(context,program_state,light_transform,this.materials.wall_material);
+        //let light_transform = model_transform.times(Mat4.translation(0,10,0)).times(Mat4.scale(1,1,5));
+        //this.shapes.showlight.draw(context,program_state,light_transform,this.materials.wall_material);
 
-        if(this.timer<this.reset_spawn_timer){
-            
-            this.shapes.target.draw(context,program_state,this.target_transform,this.materials.test);
-            
+        if(!this.game_end_flag && !this.start_flag){
+            if(this.timer<this.reset_spawn_timer){
+                
+                this.shapes.target.draw(context,program_state,this.target_transform,this.materials.target_texture);
+                
+            }
+            if(this.timer>this.max_spawn_timer) 
+            {
+                this.timer = 0;
+                this.index = this.getRandIndex();
+                this.updateTargetPosition();
+            }
+        }   
+        
+        
+        if(this.start_flag){ //case it is start screen
+            this.drawStartScreen(context,program_state);
         }
-        if(this.timer>this.max_spawn_timer)
-        {
-            this.timer = 0;
-            this.index = this.getRandIndex();
-            this.updateTargetPosition();
+        else{
+            if(this.game_end_flag) //case the game is over
+            {
+                this.drawEndScreen(context,program_state);
+                document.exitPointerLock();
+            }
+            else if(!this.pause_flag){ //case that the game is running
+                this.timer++;
+                this.drawCrosshair(context, program_state);
+
+                this.drawTextOverlays(context,program_state);
+                this.gameTimeControl();
+            }
+            else{ //case that it is paused
+                this.drawTextOverlays(context,program_state);
+                this.drawPauseScreen(context,program_state);
+            }
         }
         
-        this.drawCrosshair(context, program_state);
-
-        
-        this.timer++;
-        //console.log("look direction",this.look_direction);
     }
 
 }
+
