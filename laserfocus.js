@@ -9,8 +9,8 @@ export class laserfocus extends Scene {
         this.shapes = { 
             target: new defs.Subdivision_Sphere(4),
             wall: new defs.Square(),
-            floor: new defs.Square(),
-            crosshair_line: new defs.Subdivision_Sphere(4),
+            bullet: new defs.Square(),
+            floor: new defs.Square(), 
             showlight: new defs.Rounded_Capped_Cylinder(100,100),
             text: new Text_Line(35)
         };
@@ -35,12 +35,27 @@ export class laserfocus extends Scene {
             target_texture: new Material(new defs.Textured_Phong(),{
                 color: hex_color("#000000"),
                 ambient: 1, 
-                texture: new Texture("assets/floor_texture.png")
+                texture: new Texture("assets/purple_swirly.png")
             }),
             text_image: new Material(new defs.Textured_Phong(), {
                 ambient: 1, diffusivity: 0, specularity: 0,
                 texture: new Texture("assets/text.png")
             }),
+            bullet_hole: new Material(new defs.Textured_Phong(), {
+                color: hex_color("#000000"),
+                ambient: 1,
+                texture: new Texture("assets/bullet_hole.png")
+            }),
+            crosshair_texture: new Material(new defs.Textured_Phong(), {
+                color: hex_color("#910703"),
+                ambient:1,
+                texture: new Texture("assets/crosshair.png")
+            }),
+            background: new Material(new defs.Textured_Phong(),{
+                color:hex_color("#000000"),
+                ambient: 1,
+                texture: new Texture("assets/purple_swirly.png")
+            })
         };
         this.shapes.wall.arrays.texture_coord.forEach(p => p.scale_by(8));
         this.shapes.floor.arrays.texture_coord.forEach(p=>p.scale_by(1));
@@ -87,13 +102,10 @@ export class laserfocus extends Scene {
         this.key_map = {};  // Tracks which keys are being pressed
         this.setupEventHandlers();
 
-        this.context_width;
-        this.context_height;
-
         this.score = 0;
         this.miss=0;
 
-
+        this.bullet_marks = [];
         this.updateViewMatrix();
     }
 
@@ -239,8 +251,57 @@ export class laserfocus extends Scene {
         } else { //otherwise there is no real solution and the player missed
             console.log("Missed"); //used for debugging
             this.miss+=1;
+            const bullet_intersection_point = this.calculateBulletMark();
+            if (bullet_intersection_point) {
+                this.bullet_marks.push(bullet_intersection_point);
+            }
         }
     }   
+
+    calculateBulletMark() {
+        const wall_width = 100;  // Half the width of the wall (100 / 2)
+        const wall_height = 25; // Half the height of the wall (50 / 2)
+        const floor_ceiling_size = 100; // Half the size of the floor and ceiling (100 / 2)
+    
+        const walls = [
+            { normal: vec3(0, 0, 1), point: vec3(0, 0, -100) }, // front wall
+            { normal: vec3(1, 0, 0), point: vec3(-100, 0, 0) }, // left wall
+            { normal: vec3(-1, 0, 0), point: vec3(100, 0, 0) }, // right wall
+            { normal: vec3(0, 0, -1), point: vec3(0, 0, 100) }, // back wall
+            { normal: vec3(0, 1, 0), point: vec3(0, -25, 0) }, // floor
+            { normal: vec3(0, -1, 0), point: vec3(0, 25, 0) }  // ceiling
+        ];
+    
+        for (let wall of walls) {
+            const denom = wall.normal.dot(this.look_direction);
+            if (Math.abs(denom) > 0.0001) {
+                const t = wall.point.minus(this.eye).dot(wall.normal) / denom;
+                if (t >= 0) {
+                    const intersection_point = this.eye.plus(this.look_direction.times(t));
+                    const local_point = intersection_point.minus(wall.point);
+    
+                    // Check if the intersection_point is within the bounds of the wall
+                    if (wall.normal.equals(vec3(0, 0, 1)) || wall.normal.equals(vec3(0, 0, -1))) {
+                        // Front and back walls (check x and y)
+                        if (Math.abs(local_point[0]) <= wall_width && Math.abs(local_point[1]) <= wall_height) {
+                            return { position: intersection_point, normal: wall.normal };
+                        }
+                    } else if (wall.normal.equals(vec3(1, 0, 0)) || wall.normal.equals(vec3(-1, 0, 0))) {
+                        // Left and right walls (check y and z)
+                        if (Math.abs(local_point[1]) <= wall_height && Math.abs(local_point[2]) <= wall_width) {
+                            return { position: intersection_point, normal: wall.normal };
+                        }
+                    } else if (wall.normal.equals(vec3(0, 1, 0)) || wall.normal.equals(vec3(0, -1, 0))) {
+                        // Floor and ceiling (check x and z)
+                        if (Math.abs(local_point[0]) <= floor_ceiling_size && Math.abs(local_point[2]) <= floor_ceiling_size) {
+                            return { position: intersection_point, normal: wall.normal };
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
 
     onMouseMove(e) {
         if(!this.pause_flag &&!this.game_end_flag){
@@ -256,11 +317,39 @@ export class laserfocus extends Scene {
     }
 
     drawCrosshair(context, program_state) {
-        let crosshair_transform = Mat4.identity();
-        crosshair_transform = crosshair_transform.times(Mat4.translation(this.at[0],this.at[1],this.at[2])).times(Mat4.scale(0.003,0.003,0.003));
-        this.shapes.crosshair_line.draw(context,program_state,crosshair_transform,this.materials.crosshair_mat);
+        let crosshair_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                .times(Mat4.scale(0.02,0.02,0.02))
+                                                .times(Mat4.translation(0,0,0));
+        this.shapes.bullet.draw(context,program_state,crosshair_transform,this.materials.crosshair_texture);
     }
 
+
+    drawBulletMarks(context, program_state){
+        // Render bullet marks
+        for (let mark of this.bullet_marks) {
+            let mark_transform = Mat4.identity().times(Mat4.translation(...mark.position.plus(mark.normal.times(0.1))));
+            
+            //The following if statements rotate the bullet_hole properly so that it is normal to the surface it lies on
+            if (mark.normal.equals(vec3(0, 0, 1))) {
+                mark_transform = mark_transform.times(Mat4.rotation(Math.PI, 0, 1, 0));
+            } else if (mark.normal.equals(vec3(1, 0, 0))) {
+                mark_transform = mark_transform.times(Mat4.rotation(-Math.PI / 2, 0, 1, 0));
+            } else if (mark.normal.equals(vec3(-1, 0, 0))) {
+                mark_transform = mark_transform.times(Mat4.rotation(Math.PI / 2, 0, 1, 0));
+            } else if (mark.normal.equals(vec3(0, 0, -1))) {
+                // no additional rotation needed
+            } else if (mark.normal.equals(vec3(0,1,0))){
+                mark_transform = mark_transform.times(Mat4.rotation(Math.PI/2,1,0,0));
+            } else if (mark.normal.equals(vec3(0,-1,0))){
+                mark_transform = mark_transform.times(Mat4.rotation(-Math.PI/2,1,0,0));
+            }
+            mark_transform = mark_transform.times(Mat4.scale(2,2,2));
+            this.shapes.bullet.draw(context, program_state, mark_transform, this.materials.bullet_hole);
+            console.log("Mark Position:", mark.position);
+        } 
+    }
 
     drawTextOverlays(context, program_state) {
         let score_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
@@ -322,6 +411,9 @@ export class laserfocus extends Scene {
                                                     .times(Mat4.translation(-13,-4,2));
         this.shapes.text.set_string("Press Space to Begin", context.context);
         this.shapes.text.draw(context,program_state,click_display_transform,this.materials.text_image);
+
+        let background_transform = Mat4.identity().times(Mat4.translation(0,0,80)).times(Mat4.scale(100,100,100));
+        this.shapes.bullet.draw(context,program_state,background_transform,this.materials.background);
     }
 
     drawPauseScreen(context, program_state){
@@ -386,24 +478,13 @@ export class laserfocus extends Scene {
         this.shapes.text.draw(context,program_state,prompt_text_transform,this.materials.text_image);
     }
 
-    display(context, program_state) {
-        program_state.set_camera(this.View_Matrix);
-        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.1, 1000);
-        
-        this.context_height=context.height;
-        this.context_width=context.width;
-
-        let model_transform = Mat4.identity();
-        const light_position = vec4(0, 0, 0, 1);
-        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
-        
-        //const t = program_state.animation_time / 1000;
-
+    drawRoom(context, program_state){
         const room_size = 100;
 
         // FRONT WALL
-        let front_wall_transform = Mat4.translation(0, 0, -room_size).times(Mat4.scale(room_size, room_size, 1));
+        let front_wall_transform = Mat4.translation(0, 0, - room_size).times(Mat4.scale(room_size, room_size, 1));
         this.shapes.wall.draw(context, program_state, front_wall_transform, this.materials.wall_texture);
+
         // LEFT WALL
         let left_wall_transform = Mat4.translation(-room_size, 0, 0).times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
         this.shapes.wall.draw(context, program_state, left_wall_transform, this.materials.wall_texture);
@@ -416,7 +497,6 @@ export class laserfocus extends Scene {
         let back_wall_transform = Mat4.translation(0, 0, room_size).times(Mat4.rotation(Math.PI, 0, 1, 0)).times(Mat4.scale(room_size, room_size, 1));
         this.shapes.wall.draw(context, program_state, back_wall_transform, this.materials.wall_texture);
 
-        
         // FLOOR
         let floor_transform = Mat4.translation(0, -25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
         this.shapes.floor.draw(context, program_state, floor_transform, this.materials.floor_texture);
@@ -424,11 +504,23 @@ export class laserfocus extends Scene {
         // ROOF
         let roof_transform = Mat4.translation(0, 25, 0).times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(room_size, room_size, 1));
         this.shapes.floor.draw(context, program_state, roof_transform, this.materials.floor_texture);
-        
+    }
 
-        //Corner Show Lights
-        //let light_transform = model_transform.times(Mat4.translation(0,10,0)).times(Mat4.scale(1,1,5));
-        //this.shapes.showlight.draw(context,program_state,light_transform,this.materials.wall_material);
+    display(context, program_state) {
+        program_state.set_camera(this.View_Matrix);
+        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.1, 1000);
+
+        let model_transform = Mat4.identity();
+        const light_position = vec4(0, 0, 0, 1);
+        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
+        
+        //const t = program_state.animation_time / 1000;
+
+        if(!this.start_flag){
+            this.drawRoom(context,program_state); 
+        }
+        
+        
 
         if(!this.game_end_flag && !this.start_flag){
             if(this.timer<this.reset_spawn_timer){
@@ -444,7 +536,6 @@ export class laserfocus extends Scene {
             }
         }   
         
-        
         if(this.start_flag){ //case it is start screen
             this.drawStartScreen(context,program_state);
         }
@@ -452,13 +543,14 @@ export class laserfocus extends Scene {
             if(this.game_end_flag) //case the game is over
             {
                 this.drawEndScreen(context,program_state);
+                this.bullet_marks = [];
                 document.exitPointerLock();
             }
             else if(!this.pause_flag){ //case that the game is running
                 this.timer++;
                 this.drawCrosshair(context, program_state);
-
                 this.drawTextOverlays(context,program_state);
+                this.drawBulletMarks(context,program_state);
                 this.gameTimeControl();
             }
             else{ //case that it is paused
