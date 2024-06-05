@@ -64,7 +64,7 @@ export class laserfocus extends Scene {
         this.timer = 0;
         this.game_timer=0;
         this.game_end_flag = true;
-        this.max_gime_time = 600;
+        this.max_game_time = 600;
 
         this.start_flag = true;
         this.pause_flag = false;
@@ -285,7 +285,7 @@ export class laserfocus extends Scene {
                                             .times(Mat4.rotation(-this.pitch,1,0,0))
                                             .times(Mat4.scale(-0.03,0.03,0.03))
                                             .times(Mat4.translation(11,12,2));
-        this.shapes.text.set_string("Timer:" + (this.game_timer/100), context.context);
+        this.shapes.text.set_string("Timer:" + ((this.max_game_time-this.game_timer)/100), context.context);
         this.shapes.text.draw(context, program_state,timer_transform, this.materials.text_image);
 
         let pause_icon_transform = timer_transform.times(Mat4.translation(0,-2,0)).times(Mat4.scale(0.5,0.5,0.5));
@@ -295,7 +295,7 @@ export class laserfocus extends Scene {
 
     gameTimeControl()
     {
-        if(this.game_timer>this.max_gime_time){
+        if(this.game_timer>this.max_game_time){
             this.game_end_flag=true;
             this.game_timer=0;
         }
