@@ -57,38 +57,10 @@ export class laserfocus extends Scene {
                 ambient: 1,
                 texture: new Texture("assets/purple_swirly.png")
             }),
-<<<<<<< HEAD
             gun_barrel: new Material(new defs.Phong_Shader(),
                 {ambient: 1, diffusivity: 0, color: hex_color("#00FFFF")}),
             gun_barrel_ring: new Material(new defs.Phong_Shader(),
                 {ambient: 1, diffusivity: 0, color: hex_color("#FF0000")}),
-=======
-             gun_barrel: new Material(new defs.Textured_Phong(),
-                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel2.png")}),
-            gun_barrel_ring: new Material(new defs.Textured_Phong  (),
-                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrelTexture.png")}), 
-            black: new Material(new defs.Textured_Phong(), {
-                color: hex_color("#000000")
-            }),
-            Pistol: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel1.png")}),
-            Sniper: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel3.png")}),
-            Color: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/Color.png")}),
-            Muzzle1: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle1.png")}),
-            Muzzle2: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle2.png")}),
-            Muzzle3: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle3.png")}),
-            Extension: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/extension.png")}),
-            Scope: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/scope.png")}),
-            Scope2: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/scope2.png")})
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
         };
         this.shapes.wall.arrays.texture_coord.forEach(p => p.scale_by(8));
         this.shapes.floor.arrays.texture_coord.forEach(p=>p.scale_by(1));
@@ -112,11 +84,7 @@ export class laserfocus extends Scene {
         this.look_direction = this.at.minus(this.eye).normalized();
         this.yaw = 0;
         this.pitch = 0;
-<<<<<<< HEAD
         this.sensitivity = 0.02;
-=======
-        this.sensitivity = 0.001;
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
 
         
         this.game_timer=0;
@@ -665,7 +633,6 @@ export class laserfocus extends Scene {
         } 
 
         barrel_transform = barrel_transform.times(Mat4.translation(x_pos, y_pos, z_pos)).times(Mat4.scale(barrel_length, barrel_height, barrel_width));
-<<<<<<< HEAD
         this.shapes.cube.draw(context, program_state, barrel_transform, this.materials.gun_barrel);
 
         let barrel_transform_2 = barrel_transform.times(Mat4.translation(0.2, 3, 0)).times(Mat4.scale(0.3, 2, 2));
@@ -679,26 +646,10 @@ export class laserfocus extends Scene {
 
         let barrel_transform_5 = barrel_transform.times(Mat4.translation(0.25, 0, 0)).times(Mat4.scale(0.5, 1.5, 1.5));
         this.shapes.cube.draw(context, program_state, barrel_transform_5, this.materials.gun_barrel_ring);
-=======
-        this.shapes.cube.draw(context, program_state, barrel_transform, this.materials.Extension);
-
-        let barrel_transform_2 = barrel_transform.times(Mat4.translation(0.2, 3, 0)).times(Mat4.scale(0.3, 2, 2));
-        this.shapes.cube.draw(context, program_state, barrel_transform_2, this.materials.Sniper);
-
-        let barrel_transform_3 = barrel_transform.times(Mat4.translation(0.7, 2, 0)).times(Mat4.scale(0.2, 1, 1));
-        this.shapes.cube.draw(context, program_state, barrel_transform_3, this.materials.Sniper);
-
-        let barrel_transform_4 = barrel_transform.times(Mat4.translation(0.3, -2.5, 0)).times(Mat4.scale(0.35, 1.5, 1));
-        this.shapes.cube.draw(context, program_state, barrel_transform_4, this.materials.black);
-
-        let barrel_transform_5 = barrel_transform.times(Mat4.translation(0.25, 0, 0)).times(Mat4.scale(0.5, 1.5, 1.5));
-        this.shapes.cube.draw(context, program_state, barrel_transform_5, this.materials.Sniper);
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
 
 
         // scope
         let scope_transform = barrel_transform.times(Mat4.translation(0.35, 5.5, 0)).times(Mat4.scale(0.05, 0.5, 0.75));
-<<<<<<< HEAD
         this.shapes.cube.draw(context, program_state, scope_transform, this.materials.gun_barrel);
 
         let scope_transform_2 = barrel_transform.times(Mat4.translation(0.3, 7, 0)).times(Mat4.scale(0.15, 1, 1.5));
@@ -721,30 +672,6 @@ export class laserfocus extends Scene {
         // clip
         let clip_transform = barrel_transform.times(Mat4.translation(0.5, -6, 0)).times(Mat4.scale(0.05, 2, 1));
         this.shapes.cube.draw(context, program_state, clip_transform, this.materials.gun_barrel_ring);
-=======
-        this.shapes.cube.draw(context, program_state, scope_transform, this.materials.black);
-
-        let scope_transform_2 = barrel_transform.times(Mat4.translation(0.3, 7, 0)).times(Mat4.scale(0.15, 1, 1.5));
-        this.shapes.cube.draw(context, program_state, scope_transform_2, this.materials.Scope2);
-
-        // muzzle
-        let muzzle_transform = barrel_transform.times(Mat4.translation(-1.1, 0, 0)).times(Mat4.scale(0.1, 2, 2));
-        this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.Muzzle3);
-
-        // buttstock ( 3 parts )
-        let buttstock_transform = barrel_transform.times(Mat4.translation(0.65, -3, 0)).times(Mat4.scale(0.02, 2, 1));
-        this.shapes.cube.draw(context, program_state, buttstock_transform, this.materials.black);
-
-        let buttstock_transform_2 = barrel_transform.times(Mat4.translation(0.9, -3, 0)).times(Mat4.scale(0.02, 2, 1));
-        this.shapes.cube.draw(context, program_state, buttstock_transform_2, this.materials.black);
-
-        let buttstock_transform_3 = barrel_transform.times(Mat4.translation(0.76, -4, 0)).times(Mat4.scale(0.125, 1, 1));
-        this.shapes.cube.draw(context, program_state, buttstock_transform_3, this.materials.black);
-
-        // clip
-        let clip_transform = barrel_transform.times(Mat4.translation(0.5, -6, 0)).times(Mat4.scale(0.05, 2, 1));
-        this.shapes.cube.draw(context, program_state, clip_transform, this.materials.Scope2);
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
     }
 
     draw_medium_gun(context, program_state, t) {
@@ -776,7 +703,6 @@ export class laserfocus extends Scene {
 
         // gun under-barrel ( 2 parts )
         let under_barrel_transform = barrel_transform.times(Mat4.translation(0.25, 1.5, 0)).times(Mat4.scale(0.3, 0.5, 0.75));
-<<<<<<< HEAD
         this.shapes.cube.draw(context, program_state, under_barrel_transform, this.materials.gun_barrel_ring);
 
         under_barrel_transform = under_barrel_transform.times(Mat4.translation(0, -6, 0));
@@ -809,40 +735,6 @@ export class laserfocus extends Scene {
         // gun muzzle
         let muzzle_transform = barrel_transform.times(Mat4.translation(-1.025, 0, 0)).times(Mat4.scale(0.025, 0.5, 0.5));
         this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.gun_barrel_ring);
-=======
-        this.shapes.cube.draw(context, program_state, under_barrel_transform, this.materials.Scope);
-
-        under_barrel_transform = under_barrel_transform.times(Mat4.translation(0, -6, 0));
-        this.shapes.cube.draw(context, program_state, under_barrel_transform, this.materials.gun_barrel_ring.override(new Texture("assets/Color.png")));
-
-        // gun grip
-        let grip_transform = barrel_transform.times(Mat4.translation(0.4, -3, 0)).times(Mat4.scale(0.05, 1, 0.5));
-        this.shapes.cube.draw(context, program_state, grip_transform, this.materials.black);
-
-        // gun buttstock ( 3 parts ) 
-        let buttstock_transform = barrel_transform.times(Mat4.translation(0.7, -2, 0)).times(Mat4.scale(0.05, 1, 0.5));
-        this.shapes.cube.draw(context, program_state, buttstock_transform, this.materials.black);
-
-        buttstock_transform = buttstock_transform.times(Mat4.translation(5, 0, 0));
-        this.shapes.cube.draw(context, program_state, buttstock_transform, this.materials.black);
- 
-        buttstock_transform = buttstock_transform.times(Mat4.translation(-2, -0.5, 0)).times(Mat4.scale(2, 0.5, 1));
-        this.shapes.cube.draw(context, program_state, buttstock_transform, this.materials.black);
-
-        // gun barrel rings
-        let ring_transform = barrel_transform.times(Mat4.translation(-0.45, 0, 0)).times(Mat4.scale(0.05, 1.5, 1.5));
-        this.shapes.cube.draw(context, program_state, ring_transform, this.materials.Color);
-
-        ring_transform = ring_transform.times(Mat4.translation(-4, 0, 0));
-        this.shapes.cube.draw(context, program_state, ring_transform, this.materials.Color);
-
-        ring_transform = ring_transform.times(Mat4.translation(-4, 0, 0));
-        this.shapes.cube.draw(context, program_state, ring_transform, this.materials.Color);
-
-        // gun muzzle
-        let muzzle_transform = barrel_transform.times(Mat4.translation(-1.025, 0, 0)).times(Mat4.scale(0.025, 0.5, 0.5));
-        this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.Muzzle2);
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
 
     }
 
@@ -871,7 +763,6 @@ export class laserfocus extends Scene {
         }
         
         barrel_transform = barrel_transform.times(Mat4.translation(x_pos, y_pos, z_pos)).times(Mat4.scale(barrel_length, barrel_height, barrel_width));
-<<<<<<< HEAD
         this.shapes.cube.draw(context, program_state, barrel_transform, this.materials.gun_barrel);
 
         // gun grip
@@ -888,37 +779,13 @@ export class laserfocus extends Scene {
         // gun muzzle
         let muzzle_transform = barrel_transform.times(Mat4.translation(-1.1, 0, 0)).times(Mat4.scale(0.05, 0.5, 0.5));
         this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.gun_barrel_ring);
-=======
-        this.shapes.cube.draw(context, program_state, barrel_transform, this.materials.Pistol);
-
-        // gun grip
-        let grip_transform = barrel_transform.times(Mat4.translation(0.7, -2.5, 0)).times(Mat4.scale(0.25, 1.5, 1));
-        this.shapes.cube.draw(context, program_state, grip_transform, this.materials.black);
-
-        // gun trigger ( 2 parts )
-        let trigger_transform = barrel_transform.times(Mat4.translation(0.15, -1.75, 0)).times(Mat4.scale(0.1, 0.75, 0.5));
-        this.shapes.cube.draw(context, program_state, trigger_transform, this.materials.Muzzle1);
-
-        trigger_transform = barrel_transform.times(Mat4.translation(0.35, -2.2, 0)).times(Mat4.scale(0.1, 0.3, 0.5));
-        this.shapes.cube.draw(context, program_state, trigger_transform, this.materials.Muzzle1);
-
-        // gun muzzle
-        let muzzle_transform = barrel_transform.times(Mat4.translation(-1.1, 0, 0)).times(Mat4.scale(0.05, 0.5, 0.5));
-        this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.Muzzle1);
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
 
     }
 
     drawGunSelect(context,program_state, t){
         this.draw_small_gun(context,program_state, t);
-<<<<<<< HEAD
         this.draw_medium_gun(context,program_state, t); 
         this.draw_large_gun(context,program_state,t);
-=======
-        this.draw_medium_gun(context,program_state, t);
-        this.draw_large_gun(context,program_state,t);
-
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
         
         let instructions_text_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0))
@@ -1067,11 +934,6 @@ export class laserfocus extends Scene {
         }
         if(this.gun_select_flag){ //if in gun select  
             this.resetViewMatrix(); 
-<<<<<<< HEAD
-=======
-            this.score =0;
-            this.miss=0;
->>>>>>> ad70502aeb2f9596fd5f48b26ce18a9fb3373007
             this.drawGunSelect(context,program_state, t);
         }
         else if(this.pause_flag){ //if on pause screen
