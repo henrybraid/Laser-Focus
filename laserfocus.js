@@ -106,7 +106,7 @@ export class laserfocus extends Scene {
         this.look_direction = this.at.minus(this.eye).normalized();
         this.yaw = 0;
         this.pitch = 0;
-        this.sensitivity = 0.001;
+        this.sensitivity = 0.02;
 
         
         this.game_timer=0;
