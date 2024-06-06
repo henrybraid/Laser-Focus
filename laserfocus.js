@@ -87,10 +87,10 @@ export class laserfocus extends Scene {
         this.pitch = 0;
         this.sensitivity = 0.02;
 
-        this.timer = 0;
+        
         this.game_timer=0;
         this.game_end_flag = false;
-        this.max_game_time = 600;
+        this.max_game_time = 3000;
 
         this.game_live_flag = false;
 
@@ -102,11 +102,27 @@ export class laserfocus extends Scene {
         this.gun_medium_flag = false;
         this.gun_large_flag = false;
 
-        this.reset_spawn_timer = 150;
-        this.max_spawn_timer = 1.5*this.reset_spawn_timer;
-        this.index = this.getRandIndex();
-        this.target_transform = Mat4.identity();
-        this.updateTargetPosition();
+
+        this.target_num = 10;
+        this.target_info = [];
+        this.target_speed = 0.3;
+        for(let i = 0; i<this.target_num; i++){
+            const x = this.getRandValue(-this.target_speed,this.target_speed);
+            const y = this.getRandValue(-this.target_speed,this.target_speed);
+            const z = this.getRandValue(-this.target_speed,this.target_speed);
+            this.target_info.push({
+                timer: 0, 
+                reset_spawn_timer: this.max_game_time,
+                max_spawn_timer: this.max_game_time,
+                index: this.getRandIndex(),
+                transform: Mat4.identity(),
+                velocity: [x,y,z],
+                i: i,
+            })
+            this.updateTargetPosition(i);
+        }
+        
+        
 
         
 
@@ -182,8 +198,10 @@ export class laserfocus extends Scene {
                     this.game_live_flag = true;
                     this.score = 0;
                     this.miss = 0;
-                    this.timer = 0;
                     this.game_timer = 0;
+                    for(let target of this.target_info){
+                        target.timer = 0;
+                    }
                     document.body.requestPointerLock();
                 }
                 break;
@@ -242,10 +260,13 @@ export class laserfocus extends Scene {
         return i;
     }
 
-    updateTargetPosition()
+    getRandValue(min, max){
+        return Math.random() * (max - min) + min;
+    }
+
+    updateTargetPosition(i)
     {
-        this.target_transform = Mat4.translation(...this.sphere_positions[this.index]).times(Mat4.translation(-15,-15,0)).times(Mat4.scale(3,3,3));
-        console.log("Target position:", this.target_transform);
+        this.target_info[i].transform = Mat4.translation(...this.sphere_positions[this.target_info[i].index]).times(Mat4.translation(-15,-15,0)).times(Mat4.scale(3,3,3));
     }
 
     resetViewMatrix(){
@@ -295,40 +316,47 @@ export class laserfocus extends Scene {
         This then determines if the ray cast from the eye intersects with the target sphere, thus indicating the player has shot the sphere.
         */
         const radius = 3; 
-        const sphere_center = this.target_transform.times(vec4(0, 0, 0, 1)).to3(); // Extract the sphere's position from the target transform
-        
         const ray_direction = this.look_direction;
+        let hit_flag = false;
+        for(let target of this.target_info){
+            // Extract the sphere's position from the target transform
+            const sphere_center = target.transform.times(vec4(0,0,0,1)).to3();
         
-        // Vector from ray origin to sphere center
-        const oc = sphere_center.minus(this.eye);
         
-        // Coefficients for the quadratic equation
-        const a = ray_direction.dot(ray_direction);
-        const b = 2.0 * oc.dot(ray_direction);
-        const c = oc.dot(oc) - radius * radius;
-        
-        // Calculate the discriminant
-        const discriminant = b * b - 4 * a * c;
-        
-        //if the discriminant >0, then there exists a real solution for the intersection between the ray and the sphere
-        if (discriminant >= 0) {
-            console.log("Hit"); //used for debugging
-            this.score+=1;
-            this.timer = this.max_spawn_timer;
-        } else { //otherwise there is no real solution and the player missed
-            console.log("Missed"); //used for debugging
+            // Vector from ray origin to sphere center
+            const oc = sphere_center.minus(this.eye);
+            
+            // Coefficients for the quadratic equation
+            const a = ray_direction.dot(ray_direction);
+            const b = 2.0 * oc.dot(ray_direction);
+            const c = oc.dot(oc) - radius * radius;
+            
+            // Calculate the discriminant
+            const discriminant = b * b - 4 * a * c;
+            
+            //if the discriminant >0, then there exists a real solution for the intersection between the ray and the sphere
+            if (discriminant >= 0) {  //hit
+                this.score+=1;
+                hit_flag = true;
+                target.timer = target.max_spawn_timer;
+            }   
+        } 
+        if(!hit_flag){
+            //miss
             this.miss+=1;
             const bullet_intersection_point = this.calculateBulletMark();
             if (bullet_intersection_point) {
                 this.bullet_marks.push(bullet_intersection_point);
             }
         }
-    }   
+    }
+        
+        
 
     calculateBulletMark() {
-        const wall_width = 100;  // Half the width of the wall (100 / 2)
+        const wall_width = 100;  //The width of the wall
         const wall_height = 25; // Half the height of the wall (50 / 2)
-        const floor_ceiling_size = 100; // Half the size of the floor and ceiling (100 / 2)
+        const floor_ceiling_size = 100; // size of the floor and ceiling
     
         const walls = [
             { normal: vec3(0, 0, 1), point: vec3(0, 0, -100) }, // front wall
@@ -378,7 +406,7 @@ export class laserfocus extends Scene {
             // Clamp the pitch
             const maxPitch = Math.PI / 2 - 0.01;
             this.pitch = Math.max(-maxPitch, Math.min(maxPitch, this.pitch));
-
+ 
             this.updateViewMatrix();
         }
     }
@@ -439,7 +467,7 @@ export class laserfocus extends Scene {
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0))
                                             .times(Mat4.rotation(-this.pitch,1,0,0))
                                             .times(Mat4.scale(-0.03,0.03,0.03))
-                                            .times(Mat4.translation(11,12,2));
+                                            .times(Mat4.translation(10,12,2));
         this.shapes.text.set_string("Timer:" + ((this.max_game_time-this.game_timer)/100), context.context);
         this.shapes.text.draw(context, program_state,timer_transform, this.materials.text_image);
 
@@ -736,7 +764,67 @@ export class laserfocus extends Scene {
         let three_transform = choose_large_gun_transform.times(Mat4.translation(1.5 ,-2,0)).times(Mat4.scale(0.5,0.5,0.5));
         this.shapes.text.set_string("Press 3",context.context);
         this.shapes.text.draw(context,program_state,three_transform,this.materials.text_image);
-        console.log("this.at", this.at);
+    }
+
+
+    drawTargets(context,program_state, i){
+        const wall_width = 100;  //The width of the wall
+        const wall_height = 25; // Half the height of the wall (50 / 2)
+        const floor_ceiling_size = 100; // size of the floor and ceiling
+        
+        let target_position = this.target_info[i].transform.times(vec4(0,0,0,1)).to3();
+
+        // Apply the updated position to the target transform
+        
+        //border collision:
+        if(target_position[0]+3>=100 || target_position[0]-3<=-100){
+            this.target_info[i].velocity[0] *= -1;
+        }
+        if(target_position[1]+3>=25 || target_position[1]-3 <=-25){
+            this.target_info[i].velocity[1] *= -1;
+        }
+        if(target_position[2]-3>=50|| target_position[2]+3<-50){
+            this.target_info[i].velocity[2]*= -1;
+        } 
+        
+        
+        this.target_info[i].transform = this.target_info[i].transform.times(Mat4.translation(...this.target_info[i].velocity));
+        
+        this.shapes.target.draw(context,program_state,this.target_info[i].transform,this.materials.target_texture);
+    }
+
+    checkTargetCollision(i){ 
+        //this function checks if the targets collide with one another. 
+        //If they do collide, it will calculate their new velocities using techniques from ellastic collisions in physics.
+
+        let target1 = this.target_info[i];
+        let target1_position = target1.transform.times(vec4(0,0,0,1)).to3();
+
+        for(let target2 of this.target_info){
+            if(target2.i == i){
+                continue;
+            }
+            let target2_position = target2.transform.times(vec4(0,0,0,1)).to3();
+            let distVec = target1_position.minus(target2_position);
+            let dist = distVec.norm();
+
+
+            // Check if the distance is less than the sum of the radii (6)
+            if (dist < 6) {
+                // Normalize the distance vector to get the normal
+                let normal = distVec.normalized();
+
+                let relativeVelocity = vec3(...target1.velocity).minus(vec3(...target2.velocity));
+                let velocityAlongNormal = relativeVelocity.dot(normal);
+
+                // Swap the velocity components along the normal
+                for (let k = 0; k < 3; k++) {
+                    let momentum_change = velocityAlongNormal * normal[k];
+                    target1.velocity[k] -= momentum_change;
+                    target2.velocity[k] += momentum_change;
+                }
+            }
+        }
     }
 
     display(context, program_state) {
@@ -751,18 +839,21 @@ export class laserfocus extends Scene {
         const dt = program_state.animation_delta_time/1000;
         
 
-        if(!this.game_end_flag && !this.start_flag &&!this.gun_select_flag){
-            if(this.timer<this.reset_spawn_timer){
-                this.target_transform = this.target_transform.times(Mat4.translation((1/16)*Math.cos((1/4)*Math.PI * t),(1/16)*Math.sin((1/4)* Math.PI * t), 0)); 
-                this.shapes.target.draw(context,program_state,this.target_transform,this.materials.target_texture);
-                
+        if(this.game_live_flag){
+            for(let target of this.target_info){
+                if(target.timer<target.reset_spawn_timer){
+                    this.checkTargetCollision(target.i);
+                    this.drawTargets(context,program_state, target.i);
+                }
+                if(target.timer>target.max_spawn_timer) 
+                {
+                    target.timer = 0;
+                    target.index = this.getRandIndex();
+                    this.updateTargetPosition(target.i);
+                }
             }
-            if(this.timer>this.max_spawn_timer) 
-            {
-                this.timer = 0;
-                this.index = this.getRandIndex();
-                this.updateTargetPosition();
-            }
+            
+            
         }   
         
         if(this.start_flag){ //start screen
@@ -785,7 +876,9 @@ export class laserfocus extends Scene {
             document.exitPointerLock();
         }
         else if(this.game_live_flag){  //game is live
-            this.timer++;
+            for(let target of this.target_info){
+                target.timer++;
+            }
             this.drawCrosshair(context, program_state);
             if(this.gun_small_flag){
                 this.draw_small_gun(context,program_state, t);
