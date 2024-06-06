@@ -49,7 +49,7 @@ export class laserfocus extends Scene {
                 texture: new Texture("assets/bullet_hole.png")
             }),
             crosshair_texture: new Material(new defs.Textured_Phong(), {
-                color: hex_color("#910703"),
+                color: hex_color("#fcfc03"),
                 ambient:1,
                 texture: new Texture("assets/crosshair.png")
             }),
@@ -58,7 +58,7 @@ export class laserfocus extends Scene {
                 ambient: 1,
                 texture: new Texture("assets/purple_swirly.png")
             }),
-             gun_barrel: new Material(new defs.Textured_Phong(),
+            gun_barrel: new Material(new defs.Textured_Phong(),
                 {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel2.png")}),
             gun_barrel_ring: new Material(new defs.Textured_Phong  (),
                 {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrelTexture.png")}), 
@@ -66,23 +66,38 @@ export class laserfocus extends Scene {
                 color: hex_color("#000000")
             }),
             Pistol: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel1.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel1.png")}),
             Sniper: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel3.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/barrel3.png")}),
             Color: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/Color.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/Color.png")}),
             Muzzle1: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle1.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle1.png")}),
             Muzzle2: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle2.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle2.png")}),
             Muzzle3: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle3.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/muzzle3.png")}),
             Extension: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/extension.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/extension.png")}),
             Scope: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/scope.png")}),
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/scope.png")}),
             Scope2: new Material(new defs.Textured_Phong(), 
-            {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/scope2.png")})
+                {ambient: 1, diffusivity: 0, color: hex_color("#000000"), texture: new Texture("assets/scope2.png")}),
+            red_laser_texture: new Material(new defs.Textured_Phong(), {
+                ambient: 1,
+                color: hex_color("#000000"),
+                texture: new Texture("assets/red_neon.png"), 
+            }),
+            green_laser_texture: new Material(new defs.Textured_Phong(), {
+                ambient: 1,
+                color: hex_color("#000000"),
+                texture: new Texture("assets/green_neon.png"), 
+            }),
+            purple_laser_texture: new Material(new defs.Textured_Phong(), {
+                ambient: 1,
+                color: hex_color("#000000"),
+                texture: new Texture("assets/purple_neon.png"), 
+            })
         };
         this.shapes.wall.arrays.texture_coord.forEach(p => p.scale_by(8));
         this.shapes.floor.arrays.texture_coord.forEach(p=>p.scale_by(1));
@@ -143,11 +158,6 @@ export class laserfocus extends Scene {
             this.updateTargetPosition(i);
         }
         
-        
-
-        
-
-
         this.last_time = 0;  // Time of the last frame
         this.move_speed = 30;  // Speed of the camera movement
         this.move_direction = vec3(0, 0, 0);  // Current movement direction vector
@@ -160,14 +170,19 @@ export class laserfocus extends Scene {
 
         this.bullet_marks = [];
         this.updateViewMatrix();
+
+        
+        this.max_laser_timer = 2;
+        this.laser_timer = this.max_laser_timer; 
+        this.laser_transform = Mat4.identity();
+
     }
 
     setupEventHandlers() {
         document.addEventListener('keydown', e => this.moveCamera(e));
         document.addEventListener('mousemove', e => this.onMouseMove(e));
-        document.addEventListener('click', e => this.onMouseClick(e));
+        document.addEventListener('mousedown', e => this.onMouseClick(e)); 
     }
-
 
 
     moveCamera(event) {
@@ -316,13 +331,14 @@ export class laserfocus extends Scene {
         
         }     
         if(!this.game_end_flag && !this.pause_flag) {
+            this.laser_timer = 0;
             this.checkTargetIntersection();
         }
         else{
             
         }
     }
-
+    
     checkTargetIntersection(){
         /*
         Explanation: Uses Ray Casting to detect necessary collisions.
@@ -633,9 +649,9 @@ export class laserfocus extends Scene {
         const z_pos = 0;
 
         // gun barrel ( 4 parts )
-        const barrel_length = 8 ;
-        const barrel_height = barrel_length * 0.025;
-        const barrel_width = barrel_height;
+        let barrel_length = 8 ;
+        let barrel_height = barrel_length * 0.025;
+        let barrel_width = barrel_height;
         let barrel_transform = Mat4.identity();
 
         if(this.gun_select_flag){
@@ -647,11 +663,12 @@ export class laserfocus extends Scene {
             barrel_transform = barrel_transform.times(Mat4.translation(this.eye[0],this.eye[1],this.eye[2]))
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0))
                                             .times(Mat4.rotation(-this.pitch,1,0,0))
-                                            .times(Mat4.translation(-5.5,-3,16))
-                                            
+                                            .times(Mat4.translation(-5.5,-3,18))
                                             .times(Mat4.translation((1/16 )*Math.sin(Math.PI/2*t ),(1/8)* Math.cos(Math.PI/2  * t),0 )) //adds some sway to the gun 
                                             .times(Mat4.rotation(Math.PI/2,0,1,0)); 
-                                            console.log("here");
+            barrel_length = 14;
+            barrel_height = barrel_length * 0.025;
+            barrel_width = barrel_height;
         } 
 
         barrel_transform = barrel_transform.times(Mat4.translation(x_pos, y_pos, z_pos)).times(Mat4.scale(barrel_length, barrel_height, barrel_width));
@@ -694,6 +711,8 @@ export class laserfocus extends Scene {
         // clip
         let clip_transform = barrel_transform.times(Mat4.translation(0.5, -6, 0)).times(Mat4.scale(0.05, 2, 1));
         this.shapes.cube.draw(context, program_state, clip_transform, this.materials.Scope2);
+
+        this.laser_transform = muzzle_transform;
     }
 
     draw_medium_gun(context, program_state, t) {
@@ -715,7 +734,7 @@ export class laserfocus extends Scene {
             barrel_transform = barrel_transform.times(Mat4.translation(this.eye[0],this.eye[1],this.eye[2]))
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0))
                                             .times(Mat4.rotation(-this.pitch,1,0,0))
-                                            .times(Mat4.translation(-5.5,-3,16 ))
+                                            .times(Mat4.translation(-5.5,-3,16))
                                             .times(Mat4.translation((1/16 )*Math.sin(Math.PI/2*t ),(1/8)* Math.cos(Math.PI/2  * t),0 )) //adds some sway to the gun 
                                             .times(Mat4.rotation(Math.PI/2,0,1,0)); 
         }
@@ -757,6 +776,8 @@ export class laserfocus extends Scene {
         // gun muzzle
         let muzzle_transform = barrel_transform.times(Mat4.translation(-1.025, 0, 0)).times(Mat4.scale(0.025, 0.5, 0.5));
         this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.Muzzle2);
+
+        this.laser_transform = muzzle_transform;
 
     }
 
@@ -801,6 +822,8 @@ export class laserfocus extends Scene {
         // gun muzzle
         let muzzle_transform = barrel_transform.times(Mat4.translation(-1.1, 0, 0)).times(Mat4.scale(0.05, 0.5, 0.5));
         this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.Muzzle1);
+
+        this.laser_transform = muzzle_transform;
 
     }
 
@@ -920,6 +943,26 @@ export class laserfocus extends Scene {
         }
     }
 
+
+    drawLaser(context,program_state){ 
+        this.laser_transform = this.laser_transform.times(Mat4.translation(-100,0,0))
+                                                    //.times(Mat4.rotation(Math.PI/4 -  0.4, 0, 0, 1))
+                                                    // .times(Mat4.rotation(- Math.PI /4 + 0.25,0,1,0))
+                                                    .times(Mat4.scale(100 ,0.5,0.5));  
+        if(this.laser_timer<this.max_laser_timer){
+            if(this.gun_large_flag){
+                this.shapes.cube.draw(context,program_state,this.laser_transform,this.materials.purple_laser_texture);
+            }
+            if(this.gun_medium_flag){
+                this.shapes.cube.draw(context,program_state,this.laser_transform,this.materials.red_laser_texture);
+            }
+            if(this.gun_small_flag){
+                this.shapes.cube.draw(context,program_state,this.laser_transform,this.materials.green_laser_texture);
+            }
+        }
+        this.laser_timer++;
+    }
+
     display(context, program_state) {
         program_state.set_camera(this.View_Matrix);
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.1, 1000);
@@ -986,6 +1029,7 @@ export class laserfocus extends Scene {
             }
             this.drawTextOverlays(context,program_state);
             this.drawBulletMarks(context,program_state);
+            this.drawLaser(context,program_state);
             this.gameTimeControl(); 
         }
         
