@@ -78,18 +78,29 @@ export class laserfocus extends Scene {
                 this.sphere_positions.push(vec3(i*5,j*5,20+(k*2)));
             }
         }
+        
         this.eye = vec3(0, 0, -30); // Position of the camera
         this.at = vec3(1, 0,0);   // Where the camera is looking at
         this.up = vec3(0, 1, 0);   // Up direction vector
         this.look_direction = this.at.minus(this.eye).normalized();
+        this.yaw = 0;
+        this.pitch = 0;
+        this.sensitivity = 0.02;
 
         this.timer = 0;
         this.game_timer=0;
-        this.game_end_flag = true;
+        this.game_end_flag = false;
         this.max_game_time = 600;
+
+        this.game_live_flag = false;
 
         this.start_flag = true;
         this.pause_flag = false;
+
+        this.gun_select_flag = false;
+        this.gun_small_flag = false;
+        this.gun_medium_flag = false;
+        this.gun_large_flag = false;
 
         this.reset_spawn_timer = 150;
         this.max_spawn_timer = 1.5*this.reset_spawn_timer;
@@ -97,9 +108,7 @@ export class laserfocus extends Scene {
         this.target_transform = Mat4.identity();
         this.updateTargetPosition();
 
-        this.yaw = 0;
-        this.pitch = 0;
-        this.sensitivity = 0.02;
+        
 
 
         this.last_time = 0;  // Time of the last frame
@@ -150,31 +159,72 @@ export class laserfocus extends Scene {
                 newEye = newEye.plus(right.times(moveStep));
                 newAt = newAt.plus(right.times(moveStep));
                 break;
-            case " ": //used to start the game and the start or end screens
-                if(this.start_flag == true || this.game_end_flag == true){
-                    this.game_end_flag = false;
+            case " ": 
+                if(this.start_flag){ //if on start screen
+                    this.gun_select_flag = true;
                     this.start_flag = false;
-                    this.score = 0;
-                    this.miss = 0;
-                    this.timer = 0;
-                    this.game_timer=0;
-                    document.body.requestPointerLock();
                 }
-                else if (!this.pause_flag){
+                else if(this.game_live_flag){ //if game live
+                    //should pause
+                    this.game_live_flag = false;
                     this.pause_flag = true;
                     document.exitPointerLock();
                 }
-                else{
+                else if(this.pause_flag){ //if game is paused
+                    //should unpause
                     this.pause_flag = false;
+                    this.game_live_flag=true;
+                    document.body.requestPointerLock();
+                }
+                else if(this.game_end_flag){ //if game is over
+                    //should start game over 
+                    this.game_end_flag = false;
+                    this.game_live_flag = true;
+                    this.score = 0;
+                    this.miss = 0;
+                    this.timer = 0;
+                    this.game_timer = 0;
                     document.body.requestPointerLock();
                 }
                 break;
-            
+            case "1":
+                if(this.gun_select_flag){
+                    this.gun_select_flag = false;
+                    this.gun_large_flag = false;
+                    this.gun_medium_flag = false;
+                    this.gun_small_flag=true;
+                    this.game_live_flag = true;
+                    document.body.requestPointerLock();
+                }
+            case "2":
+                if(this.gun_select_flag){
+                    this.gun_select_flag = false;
+                    this.gun_large_flag = false;
+                    this.gun_medium_flag = true;
+                    this.gun_small_flag=false;
+                    this.game_live_flag = true;
+                    document.body.requestPointerLock();
+                }
+            case "3":
+                if(this.gun_select_flag){
+                    this.gun_select_flag = false;
+                    this.gun_large_flag = true;
+                    this.gun_medium_flag = false;
+                    this.gun_small_flag=false;
+                    this.game_live_flag = true;
+                    document.body.requestPointerLock();
+                }
+            case "g":
+                if(this.game_end_flag){
+                    this.game_end_flag = false;
+                    this.gun_select_flag=true;
+                     
+                }
         }
         
         // Collision detection with walls
         const roomSize = 100;
-        if(!this.pause_flag && !this.game_end_flag){
+        if(this.game_live_flag){
             if (Math.abs(newEye[0]) <= roomSize - 1 && Math.abs(newEye[2]) <= roomSize - 1 && newEye[1] >= -25 && newEye[1] <= 25) {
                 this.eye = newEye;
                 this.at = newAt;
@@ -196,6 +246,16 @@ export class laserfocus extends Scene {
     {
         this.target_transform = Mat4.translation(...this.sphere_positions[this.index]).times(Mat4.translation(-15,-15,0)).times(Mat4.scale(3,3,3));
         console.log("Target position:", this.target_transform);
+    }
+
+    resetViewMatrix(){
+        this.eye = vec3(0, 0, -30); 
+        this.at = (1,0,0); 
+        this.pitch = 0;
+        this.yaw = 0; 
+        this.updateViewMatrix();
+        // this.updateViewMatrix();
+        
     }
 
     updateViewMatrix() {
@@ -311,7 +371,7 @@ export class laserfocus extends Scene {
     }
 
     onMouseMove(e) {
-        if(!this.pause_flag &&!this.game_end_flag){
+        if(this.game_live_flag){
             this.yaw -= e.movementX * this.sensitivity;
             this.pitch -= e.movementY * this.sensitivity; // Inverting y-axis movement for more natural control
 
@@ -354,7 +414,6 @@ export class laserfocus extends Scene {
             }
             mark_transform = mark_transform.times(Mat4.scale(2,2,2));
             this.shapes.bullet.draw(context, program_state, mark_transform, this.materials.bullet_hole);
-            console.log("Mark Position:", mark.position);
         } 
     }
 
@@ -392,7 +451,8 @@ export class laserfocus extends Scene {
     gameTimeControl()
     {
         if(this.game_timer>this.max_game_time){
-            this.game_end_flag=true;
+            this.game_end_flag=true; 
+            this.game_live_flag=false;
             this.game_timer=0;
         }
         else{
@@ -483,6 +543,10 @@ export class laserfocus extends Scene {
                                                 .times(Mat4.translation(-17  ,-4,2));
         this.shapes.text.set_string("Press Space to Play Again", context.context);
         this.shapes.text.draw(context,program_state,prompt_text_transform,this.materials.text_image);
+
+        let gun_prompt_transform = prompt_text_transform.times(Mat4.translation(-2 ,-3,0));
+        this.shapes.text.set_string("Press G to choose new weapon", context.context);
+        this.shapes.text.draw(context,program_state,gun_prompt_transform,this.materials.text_image);
     }
 
     drawRoom(context, program_state){
@@ -513,7 +577,7 @@ export class laserfocus extends Scene {
         this.shapes.floor.draw(context, program_state, roof_transform, this.materials.floor_texture);
     }
 
-    draw_medium_gun(context, program_state) {
+    draw_medium_gun(context, program_state, t) {
 
         const x_pos = 0;
         const y_pos = 0;
@@ -524,11 +588,19 @@ export class laserfocus extends Scene {
         const barrel_height = barrel_length * 0.1;
         const barrel_width = barrel_height;
         let barrel_transform = Mat4.identity();
-        barrel_transform = barrel_transform.times(Mat4.translation(this.eye[0],this.eye[1],this.eye[2]))
+        if(this.gun_select_flag){
+            barrel_transform = barrel_transform.times(Mat4.translation(0,Math.cos(Math.PI * t), 0))
+                                                .times(Mat4.rotation(-Math.PI/4, 0, 0 , 1))
+                                                .times(Mat4.rotation(t * 1/4 * Math.PI,1,0,0)); 
+        } else{
+            barrel_transform = barrel_transform.times(Mat4.translation(this.eye[0],this.eye[1],this.eye[2]))
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0))
                                             .times(Mat4.rotation(-this.pitch,1,0,0))
                                             .times(Mat4.translation(-5.5,-3,16 ))
-                                            .times(Mat4.rotation(Math.PI/2,0,1,0));
+                                            .times(Mat4.translation((1/16 )*Math.sin(Math.PI/2*t ),(1/8)* Math.cos(Math.PI/2  * t),0 )) //adds some sway to the gun 
+                                            .times(Mat4.rotation(Math.PI/2,0,1,0)); 
+        }
+        
         barrel_transform = barrel_transform.times(Mat4.translation(x_pos, y_pos, z_pos)).times(Mat4.scale(barrel_length, barrel_height, barrel_width));
         this.shapes.cube.draw(context, program_state, barrel_transform, this.materials.gun_barrel);
 
@@ -569,8 +641,7 @@ export class laserfocus extends Scene {
 
     }
 
-    draw_small_gun(context, program_state) {
-
+    draw_small_gun(context, program_state, t) {
         const x_pos = 0;
         const y_pos = 0;
         const z_pos = 0;
@@ -580,11 +651,20 @@ export class laserfocus extends Scene {
         const barrel_height = barrel_length * 0.25;
         const barrel_width = barrel_height;
         let barrel_transform = Mat4.identity();
-        barrel_transform = barrel_transform.times(Mat4.translation(this.eye[0],this.eye[1],this.eye[2]))
+        if(this.gun_select_flag){
+            barrel_transform = barrel_transform.times(Mat4.translation(15,0,0))
+                                                .times(Mat4.translation(0,Math.cos(Math.PI * t),0))
+                                                .times(Mat4.rotation(-Math.PI/4, 0, 0,1))
+                                                .times(Mat4.rotation(t * 1/4 * Math.PI,1,0,0));
+        }else{ 
+            barrel_transform = barrel_transform.times(Mat4.translation(this.eye[0],this.eye[1],this.eye[2]))
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0))
                                             .times(Mat4.rotation(-this.pitch,1,0,0))
                                             .times(Mat4.translation(-5.5,-3,14))
+                                            .times(Mat4.translation((1/16 )*Math.sin(Math.PI/2*t ),(1/8)* Math.cos(Math.PI/2  * t),0 )) //adds some sway to the gun
                                             .times(Mat4.rotation(Math.PI/2,0,1,0));
+        }
+        
         barrel_transform = barrel_transform.times(Mat4.translation(x_pos, y_pos, z_pos)).times(Mat4.scale(barrel_length, barrel_height, barrel_width));
         this.shapes.cube.draw(context, program_state, barrel_transform, this.materials.gun_barrel);
 
@@ -605,6 +685,59 @@ export class laserfocus extends Scene {
 
     }
 
+    drawGunSelect(context,program_state, t){
+        this.draw_small_gun(context,program_state, t);
+        this.draw_medium_gun(context,program_state, t);
+        
+        let instructions_text_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                            .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                            .times(Mat4.rotation(-this.pitch,1,0,0))
+                                            .times(Mat4.scale(-0.03,0.03,0.03))
+                                            .times(Mat4.translation(-13 ,12 ,2));
+        this.shapes.text.set_string("Choose your weapon!", context.context);
+        this.shapes.text.draw(context,program_state,instructions_text_transform,this.materials.text_image);
+
+        let instructions2_text_transform = instructions_text_transform.times(Mat4.translation(1 ,-3,0)).times(Mat4.scale(0.5,0.5,0.5 ));
+        this.shapes.text.set_string("Game begins once weapon is chosen.", context.context);
+        this.shapes.text.draw(context,program_state,instructions2_text_transform,this.materials.text_image); 
+
+        let choose_small_gun_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                        .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                        .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                        .times(Mat4.scale(-0.03,0.03,0.03))
+                                                        .times(Mat4.translation(-23,-10,2));
+        this.shapes.text.set_string("Pistol", context.context);
+        this.shapes.text.draw(context,program_state,choose_small_gun_transform,this.materials.text_image);
+
+        let choose_medium_gun_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                        .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                        .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                        .times(Mat4.scale(-0.03,0.03,0.03))
+                                                        .times(Mat4.translation(-6,-10,2));
+        this.shapes.text.set_string("Laser-Gun", context.context);
+        this.shapes.text.draw(context,program_state,choose_medium_gun_transform,this.materials.text_image);
+
+        let choose_large_gun_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
+                                                        .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                                        .times(Mat4.rotation(-this.pitch,1,0,0))
+                                                        .times(Mat4.scale(-0.03,0.03,0.03))
+                                                        .times(Mat4.translation(14,-10,2));
+        this.shapes.text.set_string("Sniper", context.context);
+        this.shapes.text.draw(context,program_state,choose_large_gun_transform,this.materials.text_image);
+
+        let one_transform = choose_small_gun_transform.times(Mat4.translation(1.5 ,-2,0)).times(Mat4.scale(0.5,0.5,0.5));
+        this.shapes.text.set_string("Press 1",context.context);
+        this.shapes.text.draw(context,program_state,one_transform,this.materials.text_image);
+
+        let two_transform = choose_medium_gun_transform.times(Mat4.translation(3 ,-2,0)).times(Mat4.scale(0.5,0.5,0.5));
+        this.shapes.text.set_string("Press 2",context.context);
+        this.shapes.text.draw(context,program_state,two_transform,this.materials.text_image);
+
+        let three_transform = choose_large_gun_transform.times(Mat4.translation(1.5 ,-2,0)).times(Mat4.scale(0.5,0.5,0.5));
+        this.shapes.text.set_string("Press 3",context.context);
+        this.shapes.text.draw(context,program_state,three_transform,this.materials.text_image);
+        console.log("this.at", this.at);
+    }
 
     display(context, program_state) {
         program_state.set_camera(this.View_Matrix);
@@ -614,17 +747,13 @@ export class laserfocus extends Scene {
         const light_position = vec4(0, 0, 0, 1);
         program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
         
-        //const t = program_state.animation_time / 1000;
-
-        if(!this.start_flag){
-            this.drawRoom(context,program_state); 
-        }
-        
+        const t = program_state.animation_time / 1000;
+        const dt = program_state.animation_delta_time/1000;
         
 
-        if(!this.game_end_flag && !this.start_flag){
+        if(!this.game_end_flag && !this.start_flag &&!this.gun_select_flag){
             if(this.timer<this.reset_spawn_timer){
-                
+                this.target_transform = this.target_transform.times(Mat4.translation((1/16)*Math.cos((1/4)*Math.PI * t),(1/16)*Math.sin((1/4)* Math.PI * t), 0)); 
                 this.shapes.target.draw(context,program_state,this.target_transform,this.materials.target_texture);
                 
             }
@@ -636,29 +765,37 @@ export class laserfocus extends Scene {
             }
         }   
         
-        if(this.start_flag){ //case it is start screen
+        if(this.start_flag){ //start screen
             this.drawStartScreen(context,program_state);
         }
         else{
-            if(this.game_end_flag) //case the game is over
-            {
-                this.drawEndScreen(context,program_state);
-                this.bullet_marks = [];
-                document.exitPointerLock();
+            this.drawRoom(context,program_state);
+        }
+        if(this.gun_select_flag){ //if in gun select  
+            this.resetViewMatrix(); 
+            this.drawGunSelect(context,program_state, t);
+        }
+        else if(this.pause_flag){ //if on pause screen
+            this.drawTextOverlays(context,program_state);
+            this.drawPauseScreen(context,program_state);
+        }
+        else if(this.game_end_flag){ //game is over
+            this.drawEndScreen(context,program_state);
+            this.bullet_marks = [];
+            document.exitPointerLock();
+        }
+        else if(this.game_live_flag){  //game is live
+            this.timer++;
+            this.drawCrosshair(context, program_state);
+            if(this.gun_small_flag){
+                this.draw_small_gun(context,program_state, t);
             }
-            else if(!this.pause_flag){ //case that the game is running
-                this.timer++;
-                this.drawCrosshair(context, program_state);
-                this.draw_small_gun(context,program_state);
-                //this.draw_medium_gun(context,program_state);
-                this.drawTextOverlays(context,program_state);
-                this.drawBulletMarks(context,program_state);
-                this.gameTimeControl();
+            if(this.gun_medium_flag){
+                this.draw_medium_gun(context,program_state, t);
             }
-            else{ //case that it is paused
-                this.drawTextOverlays(context,program_state);
-                this.drawPauseScreen(context,program_state);
-            }
+            this.drawTextOverlays(context,program_state);
+            this.drawBulletMarks(context,program_state);
+            this.gameTimeControl(); 
         }
         
     }
