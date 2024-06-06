@@ -326,16 +326,10 @@ export class laserfocus extends Scene {
         this.look_direction = this.at.minus(this.eye);
     }
 
-    onMouseClick(e) {  
-        if(this.start_flag){
-        
-        }     
-        if(!this.game_end_flag && !this.pause_flag) {
+    onMouseClick(e) {     
+        if(this.game_live_flag) {
             this.laser_timer = 0;
             this.checkTargetIntersection();
-        }
-        else{
-            
         }
     }
     
@@ -901,14 +895,14 @@ export class laserfocus extends Scene {
 
         // Apply the updated position to the target transform
         
-        //border collision:
+        //collisions with walls, floor, roof:
         if(target_position[0]+3>=100 || target_position[0]-3<=-100){
             this.target_info[i].velocity[0] *= -1;
         }
         if(target_position[1]+3>=25 || target_position[1]-3 <=-25){
             this.target_info[i].velocity[1] *= -1;
         }
-        if(target_position[2]-3>=50|| target_position[2]+3<-50){
+        if(target_position[2]+3>=100|| target_position[2]-3<=-100){
             this.target_info[i].velocity[2]*= -1;
         } 
         
@@ -942,6 +936,12 @@ export class laserfocus extends Scene {
                 let relativeVelocity = vec3(...target1.velocity).minus(vec3(...target2.velocity));
                 let velocityAlongNormal = relativeVelocity.dot(normal);
 
+
+                if (velocityAlongNormal > 0) { 
+                    //check if the targets are actually moving towards each other before altering velocity
+                    continue;
+                }
+
                 // Swap the velocity components along the normal
                 for (let k = 0; k < 3; k++) {
                     let momentum_change = velocityAlongNormal * normal[k];
@@ -951,12 +951,9 @@ export class laserfocus extends Scene {
             }
         }
     }
-
-
+    
     drawLaser(context,program_state){ 
         this.laser_transform = this.laser_transform.times(Mat4.translation(-100,0,0))
-                                                    //.times(Mat4.rotation(Math.PI/4 -  0.4, 0, 0, 1))
-                                                    // .times(Mat4.rotation(- Math.PI /4 + 0.25,0,1,0))
                                                     .times(Mat4.scale(100 ,0.5,0.5));  
         if(this.laser_timer<this.max_laser_timer){
             if(this.gun_large_flag){
