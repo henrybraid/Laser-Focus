@@ -23,7 +23,6 @@ export class laserfocus extends Scene {
                 {ambient: 0.4, diffusivity: 0.6, color: hex_color("#cac1e2")}) ,
             crosshair_mat: new Material(new defs.Phong_Shader(),
                 {ambient: 1, diffusivity: 0, color: hex_color("#FFFFFF")},),
-
             floor_texture: new Material(new defs.Textured_Phong(), {
                 color: hex_color("#000000"),
                 ambient: 0.75,
@@ -605,6 +604,76 @@ export class laserfocus extends Scene {
         this.shapes.floor.draw(context, program_state, roof_transform, this.materials.floor_texture);
     }
 
+    draw_large_gun(context, program_state, t) { 
+
+        const x_pos = 0;
+        const y_pos = 0;
+        const z_pos = 0;
+
+        // gun barrel ( 4 parts )
+        const barrel_length = 8 ;
+        const barrel_height = barrel_length * 0.025;
+        const barrel_width = barrel_height;
+        let barrel_transform = Mat4.identity();
+
+        if(this.gun_select_flag){
+            barrel_transform = barrel_transform.times(Mat4.translation(-15 ,0,0))
+                                                .times(Mat4.translation(0,Math.cos(Math.PI * t), 0))
+                                                .times(Mat4.rotation(-Math.PI/4, 0, 0 , 1))
+                                                .times(Mat4.rotation(t * 1/4 * Math.PI,1,0,0)); 
+        } else{
+            barrel_transform = barrel_transform.times(Mat4.translation(this.eye[0],this.eye[1],this.eye[2]))
+                                            .times(Mat4.rotation(this.yaw, 0, 1, 0))
+                                            .times(Mat4.rotation(-this.pitch,1,0,0))
+                                            .times(Mat4.translation(-5.5,-3,16))
+                                            
+                                            .times(Mat4.translation((1/16 )*Math.sin(Math.PI/2*t ),(1/8)* Math.cos(Math.PI/2  * t),0 )) //adds some sway to the gun 
+                                            .times(Mat4.rotation(Math.PI/2,0,1,0)); 
+                                            console.log("here");
+        } 
+
+        barrel_transform = barrel_transform.times(Mat4.translation(x_pos, y_pos, z_pos)).times(Mat4.scale(barrel_length, barrel_height, barrel_width));
+        this.shapes.cube.draw(context, program_state, barrel_transform, this.materials.gun_barrel);
+
+        let barrel_transform_2 = barrel_transform.times(Mat4.translation(0.2, 3, 0)).times(Mat4.scale(0.3, 2, 2));
+        this.shapes.cube.draw(context, program_state, barrel_transform_2, this.materials.gun_barrel_ring);
+
+        let barrel_transform_3 = barrel_transform.times(Mat4.translation(0.7, 2, 0)).times(Mat4.scale(0.2, 1, 1));
+        this.shapes.cube.draw(context, program_state, barrel_transform_3, this.materials.gun_barrel_ring);
+
+        let barrel_transform_4 = barrel_transform.times(Mat4.translation(0.3, -2.5, 0)).times(Mat4.scale(0.35, 1.5, 1));
+        this.shapes.cube.draw(context, program_state, barrel_transform_4, this.materials.gun_barrel_ring);
+
+        let barrel_transform_5 = barrel_transform.times(Mat4.translation(0.25, 0, 0)).times(Mat4.scale(0.5, 1.5, 1.5));
+        this.shapes.cube.draw(context, program_state, barrel_transform_5, this.materials.gun_barrel_ring);
+
+
+        // scope
+        let scope_transform = barrel_transform.times(Mat4.translation(0.35, 5.5, 0)).times(Mat4.scale(0.05, 0.5, 0.75));
+        this.shapes.cube.draw(context, program_state, scope_transform, this.materials.gun_barrel);
+
+        let scope_transform_2 = barrel_transform.times(Mat4.translation(0.3, 7, 0)).times(Mat4.scale(0.15, 1, 1.5));
+        this.shapes.cube.draw(context, program_state, scope_transform_2, this.materials.gun_barrel);
+
+        // muzzle
+        let muzzle_transform = barrel_transform.times(Mat4.translation(-1.1, 0, 0)).times(Mat4.scale(0.1, 2, 2));
+        this.shapes.cube.draw(context, program_state, muzzle_transform, this.materials.gun_barrel_ring);
+
+        // buttstock ( 3 parts )
+        let buttstock_transform = barrel_transform.times(Mat4.translation(0.65, -3, 0)).times(Mat4.scale(0.02, 2, 1));
+        this.shapes.cube.draw(context, program_state, buttstock_transform, this.materials.gun_barrel_ring);
+
+        let buttstock_transform_2 = barrel_transform.times(Mat4.translation(0.9, -3, 0)).times(Mat4.scale(0.02, 2, 1));
+        this.shapes.cube.draw(context, program_state, buttstock_transform_2, this.materials.gun_barrel_ring);
+
+        let buttstock_transform_3 = barrel_transform.times(Mat4.translation(0.76, -4, 0)).times(Mat4.scale(0.125, 1, 1));
+        this.shapes.cube.draw(context, program_state, buttstock_transform_3, this.materials.gun_barrel_ring);
+
+        // clip
+        let clip_transform = barrel_transform.times(Mat4.translation(0.5, -6, 0)).times(Mat4.scale(0.05, 2, 1));
+        this.shapes.cube.draw(context, program_state, clip_transform, this.materials.gun_barrel_ring);
+    }
+
     draw_medium_gun(context, program_state, t) {
 
         const x_pos = 0;
@@ -715,7 +784,8 @@ export class laserfocus extends Scene {
 
     drawGunSelect(context,program_state, t){
         this.draw_small_gun(context,program_state, t);
-        this.draw_medium_gun(context,program_state, t);
+        this.draw_medium_gun(context,program_state, t); 
+        this.draw_large_gun(context,program_state,t);
         
         let instructions_text_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0))
@@ -885,6 +955,9 @@ export class laserfocus extends Scene {
             }
             if(this.gun_medium_flag){
                 this.draw_medium_gun(context,program_state, t);
+            }
+            if(this.gun_large_flag){
+                this.draw_large_gun(context,program_state,t);
             }
             this.drawTextOverlays(context,program_state);
             this.drawBulletMarks(context,program_state);
