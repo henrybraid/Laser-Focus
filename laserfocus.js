@@ -478,6 +478,15 @@ export class laserfocus extends Scene {
                 mark_transform = mark_transform.times(Mat4.rotation(-Math.PI/2,1,0,0));
             }
             mark_transform = mark_transform.times(Mat4.scale(2,2,2));
+            if(this.gun_large_flag){
+                this.materials.bullet_hole.replace({color:hex_color("#5f0d8f")})
+            }
+            if(this.gun_medium_flag){
+                this.materials.bullet_hole.replace({color:hex_color("#bf1515")})
+            }
+            if(this.gun_small_flag){
+                this.materials.bullet_hole.replace({color:hex_color("#0d8f11")})
+            }
             this.shapes.bullet.draw(context, program_state, mark_transform, this.materials.bullet_hole);
         } 
     }
