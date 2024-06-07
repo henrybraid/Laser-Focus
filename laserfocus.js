@@ -185,7 +185,7 @@ export class laserfocus extends Scene {
         this.updateViewMatrix();
 
         
-        this.max_laser_timer = 2;
+        this.max_laser_timer = 1;
         this.laser_timer = this.max_laser_timer; 
         this.laser_transform = Mat4.identity();
 
@@ -303,6 +303,7 @@ export class laserfocus extends Scene {
                     this.gun_small_flag=true;
                     this.game_live_flag = true;
                     document.body.requestPointerLock();
+                    break;
                 }
             case "2":
                 if(this.gun_select_flag){
@@ -312,6 +313,7 @@ export class laserfocus extends Scene {
                     this.gun_small_flag=false;
                     this.game_live_flag = true;
                     document.body.requestPointerLock();
+                    break;
                 }
             case "3":
                 if(this.gun_select_flag){
@@ -321,13 +323,17 @@ export class laserfocus extends Scene {
                     this.gun_small_flag=false;
                     this.game_live_flag = true;
                     document.body.requestPointerLock();
+                    break;
                 }
             case "g":
                 if(this.game_end_flag){
                     this.game_end_flag = false;
                     this.gun_select_flag=true;
-                     
                 }
+                break;
+            case "m":
+                this.background_song.muted = !this.background_song.muted;
+                break;
         }
         
         // Collision detection with walls
@@ -427,7 +433,6 @@ export class laserfocus extends Scene {
             // Extract the sphere's position from the target transform
             const sphere_center = target.transform.times(vec4(0,0,0,1)).to3();
         
-        
             // Vector from ray origin to sphere center
             const oc = sphere_center.minus(this.eye);
             
@@ -506,8 +511,8 @@ export class laserfocus extends Scene {
 
     onMouseMove(e) {
         if(this.game_live_flag){
-            this.yaw -= e.movementX * this.sensitivity;
-            this.pitch -= e.movementY * this.sensitivity; // Inverting y-axis movement for more natural control
+            this.yaw -= e.movementX * this.sensitivity;   //calculate x rotation
+            this.pitch -= e.movementY * this.sensitivity; // Calculate y rotation
 
             // Clamp the pitch
             const maxPitch = Math.PI / 2 - 0.01;
@@ -589,6 +594,10 @@ export class laserfocus extends Scene {
         let pause_icon_transform = timer_transform.times(Mat4.translation(0,-2,0)).times(Mat4.scale(0.5,0.5,0.5));
         this.shapes.text.set_string("Press Space to Pause", context.context);
         this.shapes.text.draw(context,program_state,pause_icon_transform, this.materials.text_image);
+
+        let mute_icon_transform = pause_icon_transform.times(Mat4.translation(0,-2,0));
+        this.shapes.text.set_string("Toggle Song Mute: M", context.context);
+        this.shapes.text.draw(context,program_state,mute_icon_transform,this.materials.text_image); 
     }
 
     gameTimeControl()
