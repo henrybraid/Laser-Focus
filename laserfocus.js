@@ -103,6 +103,18 @@ export class laserfocus extends Scene {
         this.shapes.floor.arrays.texture_coord.forEach(p=>p.scale_by(1));
         this.shapes.target.arrays.texture_coord.forEach(p=>p.scale_by(1));
         this.shapes.background.arrays.texture_coord.forEach(p=>p.scale_by(1));
+        
+         this.background_song = new Audio("assets/sounds/180db_background.mp3");
+        this.background_song.loop = true;
+
+        this.blaster_sound_one = new Audio("assets/sounds/blaster_sfx_1.wav");
+        this.blaster_sound_two = new Audio("assets/sounds/blaster_sfx_2.wav");
+        this.blaster_sound_three = new Audio("assets/sounds/blaster_sfx_3.wav");
+
+        this.target_pop_sound = new Audio("assets/sounds/target_pop_sfx.wav");
+
+        //this.sphere_collision_sound = new Audio("assets/sounds/sphere_collision_sfx.wav");
+        
         // Initialize an array to store the positions of the spheres
         this.sphere_positions = [];
 
@@ -137,6 +149,7 @@ export class laserfocus extends Scene {
         this.gun_small_flag = false;
         this.gun_medium_flag = false;
         this.gun_large_flag = false;
+        this.interval_length = 100; //used to adjust fire rates of the weapons
 
 
         this.target_num = 10;
@@ -181,8 +194,48 @@ export class laserfocus extends Scene {
     setupEventHandlers() {
         document.addEventListener('keydown', e => this.moveCamera(e));
         document.addEventListener('mousemove', e => this.onMouseMove(e));
-        document.addEventListener('mousedown', e => this.onMouseClick(e)); 
-    }
+        //document.addEventListener('click', e => this.onMouseClick(e));
+        
+        // Variables to store interval and state
+        let isMouseDown = false;
+        let intervalId = null;
+
+        
+        //New way of reading mouse input, makes it so user can hold down and rapid fire with certain weapons.
+        //Also ensure proper firing speed.
+        const handleMouseDown = e => {
+            if (e.button === 0 && this.game_live_flag) { // Check if the left mouse button is pressed
+                isMouseDown = true;
+                this.onMouseClick(e); // Execute immediately on mouse down
+                
+                intervalId = setInterval(() => {
+                    if (this.blaster_sound_one.paused) {
+                        this.onMouseClick(e);
+                    }
+                }, this.interval_length); // interval length based on weapon choice
+            }
+        };
+
+        const handleMouseUp = e => {
+            if (e.button === 0) { // Check if the left mouse button is released
+                isMouseDown = false;
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        };
+
+        const handleMouseLeave = () => {
+            if (isMouseDown) {
+                isMouseDown = false;
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        };
+
+        document.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mouseleave', handleMouseLeave);
+    } 
 
 
     moveCamera(event) {
@@ -215,6 +268,7 @@ export class laserfocus extends Scene {
                 if(this.start_flag){ //if on start screen
                     this.gun_select_flag = true;
                     this.start_flag = false;
+                    this.background_song.play();
                 }
                 else if(this.game_live_flag){ //if game live
                     //should pause
@@ -328,8 +382,28 @@ export class laserfocus extends Scene {
 
     onMouseClick(e) {     
         if(this.game_live_flag) {
-            this.laser_timer = 0;
-            this.checkTargetIntersection();
+            if(this.gun_large_flag){
+                //this.interval_length = 1000;
+                if (this.blaster_sound_two.paused) {
+                    this.blaster_sound_two.play(); 
+                    this.laser_timer = 0;
+                    this.checkTargetIntersection();
+                }
+            } 
+            if(this.gun_medium_flag){
+                this.interval_length = 100;
+                const blasterSound = this.blaster_sound_one.cloneNode();
+                blasterSound.play();
+                this.laser_timer = 0;
+                this.checkTargetIntersection();
+            }
+            if(this.gun_small_flag){
+                this.interval_length = 400;
+                const blasterSound = this.blaster_sound_three.cloneNode();
+                blasterSound.play();
+                this.laser_timer = 0;
+                this.checkTargetIntersection();
+            }
         }
     }
     
@@ -369,6 +443,7 @@ export class laserfocus extends Scene {
             if (discriminant >= 0) {  //hit
                 this.score+=1;
                 hit_flag = true;
+                this.target_pop_sound.play();
                 target.timer = target.max_spawn_timer;
             }   
         } 
@@ -897,7 +972,7 @@ export class laserfocus extends Scene {
         
         //collisions with walls, floor, roof:
         if(target_position[0]+3>=100 || target_position[0]-3<=-100){
-            this.target_info[i].velocity[0] *= -1;
+            this.target_info[i].velocity[0] *= -1; 
         }
         if(target_position[1]+3>=25 || target_position[1]-3 <=-25){
             this.target_info[i].velocity[1] *= -1;
@@ -941,7 +1016,7 @@ export class laserfocus extends Scene {
                     //check if the targets are actually moving towards each other before altering velocity
                     continue;
                 }
-
+                //this.sphere_collision_sound.play(); 
                 // Swap the velocity components along the normal
                 for (let k = 0; k < 3; k++) {
                     let momentum_change = velocityAlongNormal * normal[k];
@@ -951,7 +1026,7 @@ export class laserfocus extends Scene {
             }
         }
     }
-    
+
     drawLaser(context,program_state){ 
         this.laser_transform = this.laser_transform.times(Mat4.translation(-100,0,0))
                                                     .times(Mat4.scale(100 ,0.5,0.5));  
