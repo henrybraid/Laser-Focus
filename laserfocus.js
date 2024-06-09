@@ -99,12 +99,13 @@ export class laserfocus extends Scene {
                 texture: new Texture("assets/purple_neon.png"), 
             })
         };
+        //used to scale the textures
         this.shapes.wall.arrays.texture_coord.forEach(p => p.scale_by(8));
         this.shapes.floor.arrays.texture_coord.forEach(p=>p.scale_by(1));
         this.shapes.target.arrays.texture_coord.forEach(p=>p.scale_by(1));
         this.shapes.background.arrays.texture_coord.forEach(p=>p.scale_by(1));
         
-         this.background_song = new Audio("assets/sounds/180db_background.mp3");
+        this.background_song = new Audio("assets/sounds/180db_background.mp3");
         this.background_song.loop = true;
 
         this.blaster_sound_one = new Audio("assets/sounds/blaster_sfx_1.wav");
@@ -113,11 +114,9 @@ export class laserfocus extends Scene {
 
         this.target_pop_sound = new Audio("assets/sounds/target_pop_sfx.wav");
 
-        //this.sphere_collision_sound = new Audio("assets/sounds/sphere_collision_sfx.wav");
         
         // Initialize an array to store the positions of the spheres
         this.sphere_positions = [];
-
         for(let i =0; i<15;i++)
         {
             for(let j =0; j<7; j++)
@@ -127,13 +126,14 @@ export class laserfocus extends Scene {
             }
         }
         
+        //variables all used for eye matrix and camera movement
         this.eye = vec3(0, 0, -30); // Position of the camera
         this.at = vec3(1, 0,0);   // Where the camera is looking at
         this.up = vec3(0, 1, 0);   // Up direction vector
         this.look_direction = this.at.minus(this.eye).normalized();
         this.yaw = 0;
         this.pitch = 0;
-        this.sensitivity = 0.02;
+        this.sensitivity = 0.005;
 
         
         this.game_timer=0;
@@ -152,9 +152,10 @@ export class laserfocus extends Scene {
         this.interval_length = 100; //used to adjust fire rates of the weapons
 
 
+        //variables for each of the random spawning targets
         this.target_num = 10;
         this.target_info = [];
-        this.target_speed = 0.3;
+        this.target_speed = 0.2;
         for(let i = 0; i<this.target_num; i++){
             const x = this.getRandValue(-this.target_speed,this.target_speed);
             const y = this.getRandValue(-this.target_speed,this.target_speed);
@@ -191,10 +192,10 @@ export class laserfocus extends Scene {
 
     }
 
+    //sets up all event readers for user input
     setupEventHandlers() {
         document.addEventListener('keydown', e => this.moveCamera(e));
         document.addEventListener('mousemove', e => this.onMouseMove(e));
-        //document.addEventListener('click', e => this.onMouseClick(e));
         
         // Variables to store interval and state
         let isMouseDown = false;
@@ -238,6 +239,7 @@ export class laserfocus extends Scene {
     } 
 
 
+    //called when the player presses any key (moves camera according to WASD)
     moveCamera(event) {
         const moveStep = 10;
         // Extract only the x and z components of the direction vector and normalize
@@ -350,6 +352,7 @@ export class laserfocus extends Scene {
         event.preventDefault();
     }
     
+    //used to get random sphere spawn location
     getRandIndex()
     {
         const i = Math.floor(Math.random() * 735);
@@ -365,16 +368,17 @@ export class laserfocus extends Scene {
         this.target_info[i].transform = Mat4.translation(...this.sphere_positions[this.target_info[i].index]).times(Mat4.translation(-15,-15,0)).times(Mat4.scale(3,3,3));
     }
 
+    //used to reset Eye Matrix to original state
     resetViewMatrix(){
         this.eye = vec3(0, 0, -30); 
         this.at = (1,0,0); 
         this.pitch = 0;
         this.yaw = 0; 
         this.updateViewMatrix();
-        // this.updateViewMatrix();
-        
+              
     }
 
+    //called when mouse moves on screen, updates camera orientation
     updateViewMatrix() {
         const direction = vec3(
             Math.cos(this.pitch) * Math.sin(this.yaw),
@@ -385,6 +389,7 @@ export class laserfocus extends Scene {
         this.View_Matrix = Mat4.look_at(this.eye, this.at, this.up);
         this.look_direction = this.at.minus(this.eye);
     }
+
 
     onMouseClick(e) {     
         if(this.game_live_flag) {
@@ -413,6 +418,7 @@ export class laserfocus extends Scene {
         }
     }
     
+    //Called when user fires a shot, checks if player shot the target.
     checkTargetIntersection(){
         /*
         Explanation: Uses Ray Casting to detect necessary collisions.
@@ -464,6 +470,8 @@ export class laserfocus extends Scene {
         
         
 
+    //Function to calculate the location of where the bullet mark should be placed on the borders of the room on a miss.
+    //Calculates the intersection between the ray cast from the eye and the planes of the boundaries.
     calculateBulletMark() {
         const wall_width = 100;  //The width of the wall
         const wall_height = 25; // Half the height of the wall (50 / 2)
@@ -509,6 +517,7 @@ export class laserfocus extends Scene {
         return null;
     }
 
+    //update rotational values of eye matrix
     onMouseMove(e) {
         if(this.game_live_flag){
             this.yaw -= e.movementX * this.sensitivity;   //calculate x rotation
@@ -552,6 +561,8 @@ export class laserfocus extends Scene {
                 mark_transform = mark_transform.times(Mat4.rotation(-Math.PI/2,1,0,0));
             }
             mark_transform = mark_transform.times(Mat4.scale(2,2,2));
+            
+            //change color of bullet hole according to gun model:
             if(this.gun_large_flag){
                 this.materials.bullet_hole.replace({color:hex_color("#5f0d8f")})
             }
@@ -565,6 +576,7 @@ export class laserfocus extends Scene {
         } 
     }
 
+    //draws the text UI during live gameplay
     drawTextOverlays(context, program_state) {
         let score_transform = Mat4.identity().times(Mat4.translation(this.at[0],this.at[1],this.at[2]))
                                             .times(Mat4.rotation(this.yaw, 0, 1, 0)) //rotate with camera movement
@@ -610,8 +622,6 @@ export class laserfocus extends Scene {
         else{
             this.game_timer++;
         }
-        
-        
     }
 
     drawStartScreen(context,program_state){
@@ -729,6 +739,7 @@ export class laserfocus extends Scene {
         this.shapes.floor.draw(context, program_state, roof_transform, this.materials.floor_texture);
     }
 
+    //function to draw the Purple Sniper
     draw_large_gun(context, program_state, t) { 
 
         const x_pos = 0;
@@ -802,6 +813,7 @@ export class laserfocus extends Scene {
         this.laser_transform = muzzle_transform;
     }
 
+    //function to draw the Red Laser-Gun
     draw_medium_gun(context, program_state, t) {
 
         const x_pos = 0;
@@ -868,6 +880,7 @@ export class laserfocus extends Scene {
 
     }
 
+    //Function to draw the Green Pistol
     draw_small_gun(context, program_state, t) {
         const x_pos = 0;
         const y_pos = 0;
@@ -914,6 +927,7 @@ export class laserfocus extends Scene {
 
     }
 
+    //Draw the Gun Select Screen (seen at start of game or if press G when game ends)
     drawGunSelect(context,program_state, t){
         this.draw_small_gun(context,program_state, t);
         this.draw_medium_gun(context,program_state, t);
@@ -1025,7 +1039,6 @@ export class laserfocus extends Scene {
                     //check if the targets are actually moving towards each other before altering velocity
                     continue;
                 }
-                //this.sphere_collision_sound.play(); 
                 // Swap the velocity components along the normal
                 for (let k = 0; k < 3; k++) {
                     let momentum_change = velocityAlongNormal * normal[k];
@@ -1036,6 +1049,7 @@ export class laserfocus extends Scene {
         }
     }
 
+    //Draw a Laser from the gun muzzle when the user fires a shot. Helps to visualize that they are actually firing. 
     drawLaser(context,program_state){ 
         this.laser_transform = this.laser_transform.times(Mat4.translation(-100,0,0))
                                                     .times(Mat4.scale(100 ,0.5,0.5));  
@@ -1053,6 +1067,7 @@ export class laserfocus extends Scene {
         this.laser_timer++;
     }
 
+    //main Display function
     display(context, program_state) {
         program_state.set_camera(this.View_Matrix);
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.1, 1000);
@@ -1065,6 +1080,7 @@ export class laserfocus extends Scene {
         const dt = program_state.animation_delta_time/1000;
         
 
+        //If the game is live, calls the necessary target information and movements
         if(this.game_live_flag){
             for(let target of this.target_info){
                 if(target.timer<target.reset_spawn_timer){
@@ -1082,6 +1098,7 @@ export class laserfocus extends Scene {
             
         }   
         
+        //If on start screen
         if(this.start_flag){ //start screen
             this.drawStartScreen(context,program_state);
         }
